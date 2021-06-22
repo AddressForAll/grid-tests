@@ -16,16 +16,32 @@ CREATE TABLE grade_ibge_1kmcenters (
   UNIQUE(gx,gy)
 );
 
+CREATE FUNCTION ibge_grid_cell( cx int, cy int, d int DEFAULT 500) RETURNS geometry AS $f$
+    SELECT ST_GeomFromText( format(
+     'POLYGON((%s %s,%s %s,%s %s,%s %s,%s %s))',
+          cx-d,cy-d, cx-d,cy+d, cx+d,cy+d, cx+d,cy-d, cx-d,cy-d
+     ), 952019) AS geom
+$f$ LANGUAGE SQL IMMUTABLE;
+
+CREATE or replace FUNCTION ibge_grid_cell(
+  cx int, cy int, d int, p_translate boolean, p_srid int DEFAULT 952019
+) RETURNS geometry AS $f$
+  SELECT CASE WHEN p_translate THEN ST_Transform(geom,4326) ELSE geom END
+  FROM (
+    SELECT ST_GeomFromText( format(
+     'POLYGON((%s %s,%s %s,%s %s,%s %s,%s %s))',
+          cx-d,cy-d, cx-d,cy+d, cx+d,cy+d, cx+d,cy-d, cx-d,cy-d
+     ), p_srid) AS geom
+  ) t
+$f$ LANGUAGE SQL IMMUTABLE;
+
+DROP VIEW IF EXISTS vw_grade_ibge_rebuild;
 CREATE or replace VIEW vw_grade_ibge_rebuild AS
   SELECT '1KME'|| substr(gx::text,1,4) ||'N'|| substr(gy::text,1,4) AS nome_1km,
          'ID_'|| LPAD(ibge_prefix::text, 2, '0') AS quadrante,
          pop - fem AS masc,
          *,
-         ST_Envelope(
-            --ST_Transform(  ST_Buffer(ST_Transform(geom,952019),500),  4326  )
-            ST_Transform(  ST_Buffer(ST_SetSRID(ST_MakePoint(gx+0,gy+0),952019),495),  4326  )
-       )
-         AS boxgeom
+         ibge_grid_cell(gx,gy,500,true) AS boxgeom
   FROM (
     SELECT *, ROUND(pop*pop_fem_perc::real/100.0)::int AS fem
     FROM grade_ibge_1kmcenters

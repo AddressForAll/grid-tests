@@ -2,24 +2,20 @@
 -- TESTS to check by QGIS,
 --
 
--- DEBUG:
-SELECT c, osmcodes_common.ggeohash_to_uxybounds('00'||c,2)
-FROM (
-  SELECT substr('0123456789abcdef',k,1) as c
-  FROM generate_series(1,4) t1(k)
-) t2;
 
+SELECT OSMcodes_br.xy_to_ggeohash(5300500,9396500,8);
 
--- DROP TABLE osmcodes_br.grid_test1;
-CREATE TABLE osmcodes_br.grid_test1 AS
-  --  from source of osmcodes_br.ij_to_xy(). Working ok:
+-- DROP TABLE osmcodes_br.grid_test1_quadrantes;
+CREATE TABLE osmcodes_br.grid_test1_quadrantes AS
   SELECT lpad((j*10+i)::text,2,'0') AS gid,
-         OSMcodes_br.cellgeom_xy_bycorner(2734000 + i*512000, 7320000 + j*512000) AS geom
+        OSMcodes_br.cellgeom_from_ij(j*10+i) as geom
   FROM generate_series(0,8) as j, generate_series(0,9) as i
 ;
 
-INSERT INTO osmcodes_br.grid_test1(gid,geom)
-  SELECT gid, OSMcodes_br.cellgeom_xy( OSMcodes_br.ggeohash_to_xy(gid,4) , 512000/16)
+DROP TABLE osmcodes_br.grid_test1_hexadecimal;
+CREATE TABLE osmcodes_br.grid_test1_hexadecimal AS
+osmcodes_common.ggeohash_to_xybounds
+  SELECT gid, OSMcodes_br.cellgeom_xy( OSMcodes_br.ggeohash_to_xy(gid,4) , 512000/4)
   FROM (
     SELECT lpad((j*10+i)::text,2,'0') || c AS gid
     FROM generate_series(0,8) as j, generate_series(0,9) as i, (
@@ -31,10 +27,10 @@ INSERT INTO osmcodes_br.grid_test1(gid,geom)
 
 INSERT INTO osmcodes_br.grid_test1(gid,geom)
   WITH   scan AS (
-      SELECT '00'||c as gid, osmcodes_br.ggeohash_to_xybounds('00'||c,4) as xy_bound
+      SELECT '45'||c as gid, osmcodes_br.ggeohash_to_xybounds('45'||c,2) as xy_bound
       FROM (
         SELECT substr('0123456789abcdef',k,1) as c
-        FROM generate_series(1,16) t1(k)
+        FROM generate_series(1,4) t1(k)
       ) t2
   )
   SELECT gid||'-'||'pt1',  ST_SetSRID(ST_MakePoint(xy_bound[1],xy_bound[2]),952019 ) as geom FROM scan

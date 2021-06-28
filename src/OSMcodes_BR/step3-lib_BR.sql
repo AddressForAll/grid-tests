@@ -5,6 +5,32 @@
 DROP SCHEMA IF EXISTS osmcodes_br CASCADE; -- to restart all lib and dependencies.
 CREATE SCHEMA osmcodes_br;
 
+
+---
+CREATE or replace FUNCTION osmcodes_br.ij_to_xy(quadrante_ij int) RETURNS int[] AS $f$
+  SELECT array[
+    2734000 + (quadrante_ij-j0*10)*512000,  -- coordenada x0_min do quadrante (j0,i0)
+    7320000 + j0*512000                     -- coordenada y0_min do quadrante (j0,i0)
+  ] FROM ( SELECT quadrante_ij/10 ) t(j0)
+$f$ LANGUAGE SQL IMMUTABLE;
+COMMENT ON FUNCTION osmcodes_br.ij_to_xy(int)
+ IS 'Coordenadas Albers do canto inferior esquerdo (minX,minY) do quadrante, conforme seu identificador ij (j0,i0).'
+;
+CREATE FUNCTION osmcodes_br.quadrant_to_xybounds( quadrante_ij int ) RETURNS int[] AS $f$
+  SELECT array[ ij[1], ij[2],  ij[1]+512000, ij[2]+512000 ]
+  FROM ( SELECT osmcodes_br.ij_to_xy(quadrante_ij) ) t(ij)
+$f$ LANGUAGE SQL IMMUTABLE;
+COMMENT ON FUNCTION OSMcodes_br.quadrant_to_xybounds(int)
+ IS 'Extremidades da diagonal da origem do quadrante_ij, expressas em Albers.'
+;
+CREATE FUNCTION osmcodes_br.quadrant_to_xybounds( geohash_or_prefix text ) RETURNS int[] AS $wrap$
+  SELECT osmcodes_br.quadrant_to_xybounds( substr(geohash_or_prefix,1,2)::int )
+$wrap$ LANGUAGE SQL IMMUTABLE;
+COMMENT ON FUNCTION OSMcodes_br.quadrant_to_xybounds(text)
+ IS 'Wrap function. Extremidades da diagonal da origem do quadrante_ij, expressas em Albers.'
+;
+
+----
 -- -- -- --
 -- Geradores de geometria da célula:
 
@@ -31,16 +57,15 @@ COMMENT ON FUNCTION OSMcodes_br.cellgeom_xy_bycorner(int,int,int)
  IS 'Geometria da célula expressa em projeção Albers (xy), no input e output. Canto inferior esqerdo (min XY) e lado (side size) são inputs.'
 ;
 
-CREATE FUNCTION osmcodes_br.ij_to_xy(quadrante_ij int) RETURNS int[] AS $f$
-  SELECT array[
-    2734000 + (quadrante_ij-j0)*512000,  -- coordenada x0_min do quadrante (j0,i0)
-    7320000 + j0*512000                  -- coordenada y0_min do quadrante (j0,i0)
-  ] FROM ( SELECT floor(quadrante_ij/10) ) t(j0)
+CREATE FUNCTION OSMcodes_br.cellgeom_from_ij( quadrante_ij int ) RETURNS geometry AS $f$
+  SELECT OSMcodes_br.cellgeom_xy_bycorner(xy[1],xy[2],512000)
+  FROM (SELECT osmcodes_br.ij_to_xy(quadrante_ij) xy) t
 $f$ LANGUAGE SQL IMMUTABLE;
-COMMENT ON FUNCTION osmcodes_br.ij_to_xy(int)
- IS 'Coordenadas Albers do canto inferior direito (minX,minY) do quadrante, conforme seu identificador ij (j0,i0).'
+COMMENT ON FUNCTION OSMcodes_br.cellgeom_from_ij(int)
+ IS 'Geometria do quadrante expressa em projeção Albers (xy).'
 ;
 
+/* falha se não incluir flag para célula retangular:
 CREATE FUNCTION OSMcodes_br.cellgeom_uxy( quadrante_ij int, c_ux int, c_uy int, s int DEFAULT 512000) RETURNS geometry AS $f$
   SELECT OSMcodes_br.cellgeom_xy(xy0[1]+c_ux*s, xy0[2]+c_uy*s, s/2)
   FROM ( SELECT osmcodes_br.ij_to_xy(quadrante_ij) ) t(xy0)
@@ -48,7 +73,66 @@ $f$ LANGUAGE SQL IMMUTABLE;
 COMMENT ON FUNCTION OSMcodes_br.cellgeom_uxy(int,int,int,int)
  IS 'Geometria da célula expressa em Albers, tomando como entradas o quadrante, as coordenadas Unit Box do centro da célula no quadrante e o lado (side size) da célula.'
 ;
+*/
 
+-- encode!
+CREATE FUNCTION osmcodes_br.xy_to_ggeohash(
+  x int, -- X, first coordinate of IBGE's Albers Projection
+  y int, -- Y, second coordinate of IBGE's Albers Projection
+  precisao int, -- precisão depois do prefixo; number of digits in the geocode (of base_bitsize)
+  base_bitsize int default 4  -- base4 = 2 bits, base16 = 4 bits, base32 = 5 bits
+) RETURNS text AS $f$
+DECLARE
+  dx0 int; dy0 int; -- deltas
+  i0 int; j0 int;   -- level0 coordinates
+  ij int;           -- i0 and j0 as standard quadrant-indentifier.
+  x0 int; y0 int;   -- Quadrant geometry corner coordinates
+  ux real; uy real; -- unitary box coordinates
+  ux_id bigint; uy_id bigint; -- (ux,uy) quantized as positive integers
+  geohash text;     -- the final Unitary Box Geocode.
+  xyMin int[];
+  qbounds real[];
+BEGIN
+  dx0 := x - 2734000;  dy0 := y - 7320000; -- encaixa na box dos quadrantes
+  i0 := floor( 15.341::real * dx0::real/7854000.0::real )::int;
+  j0 := floor( 23.299::real * dy0::real/11928000.0::real )::int;
+  ij := i0 + j0*10;
+  IF ij NOT IN ( -- confere se entre os 54 quadrantes do território brasileiro
+        4,13,14,15,23,24,25,26,27,33,34,35,36,37,39,42,43,44,45,46,47,50,51,52,53,54,55,
+        56,57,58,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,80,81,82,83,84,85
+      ) THEN
+    RETURN NULL;
+  END IF;
+  qbounds := osmcodes_br.quadrant_to_xybounds(ij);
+  RETURN osmcodes_common.xy_to_ggeohash(x, y, qbounds, precisao, lpad(ij::text,2,'0'), base_bitsize);
+END
+$f$ LANGUAGE plpgsql IMMUTABLE;
+COMMENT ON FUNCTION OSMcodes_br.xy_to_ggeohash(int,int,int,int)
+ IS 'Geocódigo de um ponto. Entradas: as coordenadas XY Albers do ponto, o número de dígitos desejados e a notação desada.'
+;
+
+-- DECODE!
+CREATE FUNCTION osmcodes_br.ggeohash_to_xybounds(
+  geohash text,  -- completo, com quadrante no prefixo
+  base_bitsize int default 4  -- base4 = 2 bits, base16 = 4 bits, base32 = 5 bits
+) RETURNS text AS $f$
+DECLARE
+  xyMin int[];
+  qbounds real[];
+  bounds real[];
+BEGIN
+  xyMin   := osmcodes_br.ij_to_xy(geohash);
+  qbounds := array[xyMin[1],xyMin[2], xyMin[1]+512000,xyMin[2]+512000];
+  RETURN osmcodes_common.ggeohash_to_xybounds(qbounds, substr(geohash,3), base_bitsize);
+END
+$f$ LANGUAGE plpgsql IMMUTABLE;
+COMMENT ON FUNCTION OSMcodes_br.ggeohash_to_xybounds(text,int)
+ IS 'Coordenadas MinMax Albers de um GGeohash BR.'
+;
+
+-- falta usar ggeohash_to_xybounds para produzir cellcenter e cellgeom
+
+/* OLD LIXO
 CREATE FUNCTION osmcodes_br.xy_to_ggeohash(
   x int, -- X, first coordinate of IBGE's Albers Projection
   y int, -- Y, second coordinate of IBGE's Albers Projection
@@ -84,12 +168,12 @@ BEGIN
   RETURN lpad(ij::text,2,'0') || geohash;
 END
 $f$ LANGUAGE plpgsql IMMUTABLE;
-COMMENT ON FUNCTION OSMcodes_br.xy_to_ggeohash(int,int,int,int)
- IS 'Geocódigo da célula, tomando como entradas as coordenadas XY Albers de um ponto interior, o número de dígitos desejados e notação desada.'
-;
+*/
 
---- falta uxy_to_xy? =  xy_to_geohash
 
+
+
+/* bug
 CREATE FUNCTION osmcodes_br.ggeohash_to_xybounds(
   geohash text, -- the BR geocode.
   base_bitsize int default 5 -- supposed input type, base4=2 bits, base16=4 bits, base32=5.
@@ -113,6 +197,7 @@ COMMENT ON FUNCTION OSMcodes_br.ggeohash_to_xybounds(text,int)
  IS 'Extremidades da diagonal da célula expressas em Albers, tomando como entradas o geohash completo e a notação esperada.'
 ;
 
+
 CREATE FUNCTION osmcodes_br.ggeohash_to_xy(
   geohash text, -- the BR geocode.
   base_bitsize int default 5 -- supposed input type, base4=2 bits, base16=4 bits, base32=5.
@@ -124,6 +209,7 @@ COMMENT ON FUNCTION OSMcodes_br.ggeohash_to_xybounds(text,int)
  IS 'Centro da célula expressas em Albers, tomando como entradas o geohash completo e a notação esperada.'
 ;
 
+*/
 
 -----
 CREATE FUNCTION osmcodes_br.point_to_ggeohash(

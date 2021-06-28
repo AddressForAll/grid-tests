@@ -78,9 +78,13 @@ COMMENT ON FUNCTION osmcodes_common.vbit_to_baseh(varbit,int,int)
  IS 'Encodes varbit (string of bits) into Base4h, Base8h or Base16h. See http://osm.codes/_foundations/art1.pdf'
 ;
 
-CREATE or replace FUNCTION osmcodes_common.uxy_to_ggeohash(
-  ux real, -- Unitary X. First coordinate in the "unitary box".
-  uy real, -- Unitary Y. Second coordinate in the "unitary box".
+-----------
+--- ENCODE/DECODE: can be by "unitary box" (ux,uy), but not using it
+
+CREATE or replace FUNCTION osmcodes_common.xy_to_ggeohash(
+  x real, -- X. First coordinate
+  y real, -- Y. Second coordinate.
+  qbounds real[], -- minXY, maxXY. Prefix or Quadrant bounds
   precisao int, -- number of digits in the geocode (of base_bitsize)
   prefix text DEFAULT '', -- Geocode of the "parent cell", non-unitary.
   base_bitsize int default 4  -- base4=2 bits, base16=4 bits. Base32=5 bits.
@@ -103,13 +107,13 @@ BEGIN
   bitct := 0; -- each char holds 5 bits
   evenBit := true;
   geohash := '';
-  xOrigMin := 0; xOrigMax := 1;
-  yOrigMin := 0; yOrigMax := 1;
+  xOrigMin := qbounds[1]; yOrigMin := qbounds[2]; -- minXY
+  xOrigMax := qbounds[3]; yOrigMax := qbounds[4]; -- maxXY
   WHILE length(geohash) < precisao LOOP
     IF evenBit THEN
       -- bisect E-W y
       yMid := (yOrigMin + yOrigMax) / 2.0;
-      IF uy >= yMid THEN
+      IF y >= yMid THEN
           idx := idx*2 + 1;
           yOrigMin := yMid;
       ELSE
@@ -119,7 +123,7 @@ BEGIN
     ELSE -- not evenBit:
       -- bisect N-S x
       xMid := (xOrigMin + xOrigMax) / 2.0;
-      IF ux >= xMid THEN
+      IF x >= xMid THEN
         idx = idx*2 + 1;
         xOrigMin = xMid;
       ELSE
@@ -130,22 +134,35 @@ BEGIN
     evenBit := NOT(evenBit);
     bitct := bitct + 1;
     IF bitct = base_bitsize THEN
-        -- 2 bits gives us a digit: append it and start over
-        -- base4: geohash := geohash || idx::text;
         geohash := geohash || substr(alphabet, idx+1, 1);
         bitct := 0;
         idx := 0;
     END IF;
   END LOOP;
+  -- Calculate the ERROR ON USE geocode as central position:  SQRT( (x-(xOrigMin+xOrigMax)/2)^2 + (y-(yOrigMin+yOrigMax)/2)^2 )
   RETURN prefix || geohash;
 END
 $f$ LANGUAGE plpgsql IMMUTABLE;
-COMMENT ON FUNCTION osmcodes_common.uxy_to_ggeohash(real,real,int,text,int)
- IS 'Encodes Unitary-XY coodinates into a Generalized Geohash with specified precision, prefix and baseByBits (2, 4 or 5). Non-optimized algorithm, v1.'
+COMMENT ON FUNCTION osmcodes_common.xy_to_ggeohash(real,real,real[],int,text,int)
+ IS 'Encodes XY coodinates into a Generalized Geohash with specified precision, prefix and baseByBits (2, 4 or 5). Non-optimized algorithm, v1.'
 ;
 
-CREATE or replace FUNCTION osmcodes_common.ggeohash_to_uxybounds(
-  geohash text, -- a geocode.
+/*  BUG: avoid because some cells are not squares!
+CREATE or replace FUNCTION osmcodes_common.uxy_to_ggeohash(
+  ux real, -- Unitary X. First coordinate in the "unitary box".
+  uy real, -- Unitary Y. Second coordinate in the "unitary box".
+  precisao int, -- number of digits in the geocode (of base_bitsize)
+  prefix text DEFAULT '', -- Geocode of the "parent cell", non-unitary.
+  base_bitsize int default 4  -- base4=2 bits, base16=4 bits. Base32=5 bits.
+) RETURNS text AS $f$
+  SELECT osmcodes_common.xy_to_ggeohash($1,$2,array[0.0,1.0, 0.0,1.0],$3,$4,$5)
+$f$ LANGUAGE plpgsql IMMUTABLE;
+*/
+
+-- DECODE
+CREATE or replace FUNCTION osmcodes_common.ggeohash_to_xybounds(
+  qbounds real[], -- minXY, maxXY. Prefix or Quadrant (prefix) bounds
+  internal_geohash text, -- a geocode, without prefix
   base_bitsize int default 5  -- supposed input type, base4=2 bits, base16=4 bits, base32=5 bits.
 ) RETURNS real[] AS $f$
 DECLARE
@@ -161,22 +178,22 @@ DECLARE
 BEGIN
   IF base_bitsize=5 THEN  -- alfabeto do NOVO CEP
     alphabet := '0123456789BCDFGHJKLMNPQRSTUVWXYZ';  -- NVU Alphabet - "No-Volgal except U".
-    geohash := upper(geohash);
+    internal_geohash := upper(internal_geohash);
   ELSE
-    geohash := lower(geohash);
+    internal_geohash := lower(internal_geohash);
   END IF;
-  IF length(geohash)=0 THEN
+  IF length(internal_geohash)=0 THEN
     RAISE NOTICE 'Invalid (empty) geohash';
     RETURN NULL;
   END IF;
-  xMin = 0; xMax = 1;
-  yMin = 0; yMax = 1;
+  xMin := qbounds[1]; yMin := qbounds[2]; -- minXY
+  xMax := qbounds[3]; yMax := qbounds[4]; -- maxXY
   -- falta testar com varbit direto.
-  FOR i IN 1..length(geohash) LOOP -- scan dos dígitos
-    chr = substr(geohash,i,1);
+  FOR i IN 1..length(internal_geohash) LOOP -- scan dos dígitos
+    chr = substr(internal_geohash,i,1);
     idx = position(chr in alphabet);
     IF idx=0 THEN
-      RAISE NOTICE 'Invalid geohash: %', geohash;
+      RAISE NOTICE 'Invalid geohash: %', internal_geohash;
       RETURN NULL;
     END IF;
     FOR n IN REVERSE (base_bitsize-1)..0 LOOP -- scan dos bits do dígito conforme sua base
@@ -195,8 +212,8 @@ BEGIN
   RETURN array[xMin,yMin, xMax,yMax];
 END
 $f$ LANGUAGE plpgsql IMMUTABLE;
-COMMENT ON FUNCTION osmcodes_common.ggeohash_to_uxybounds(text,int)
- IS 'Decodes Generalized Geohash into Unitary-XY coodinates, supposing specified baseByBits (2, 4 or 5). Non-optimized algorithm, v1.'
+COMMENT ON FUNCTION osmcodes_common.ggeohash_to_xybounds(real[],text,int)
+ IS 'Decodes Generalized Geohash into XY coodinates, supposing specified quadrant and baseByBits (2, 4 or 5). Non-optimized algorithm, v1.'
 ;
 
 -----
@@ -215,6 +232,7 @@ COMMENT ON FUNCTION osmcodes_common.ggeohash_to_uxy(text,int,int)
 ;
 */
 
+/*
 ---------------------
 -- NEW VERSION ALGORITHMS: needs evolutions v2 and v3 to better performance and check datatype use.
 
@@ -270,7 +288,7 @@ BEGIN
   RETURN prefix || geohash;
 END
 $f$ LANGUAGE plpgsql IMMUTABLE;
-
+*/
 
 -- -- -- --
 -- NAIVE ALGORITHMS, ONLY FOR TEST AND PROOF OF CONCEPT

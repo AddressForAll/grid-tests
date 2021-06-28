@@ -17,9 +17,9 @@ sql_prepare:
 	psql postgres://postgres@localhost -c "CREATE DATABASE $(dbname)"
 
 sql_build:
-	psql postgres://postgres@localhost/$(dbname) -f step1_libPub.sql
-	psql postgres://postgres@localhost/$(dbname) -f step2_libOsmCode.sql
-	psql postgres://postgres@localhost/$(dbname) -f step3_libGrid.sql
+	psql postgres://postgres@localhost/$(dbname) -f step1-libPub.sql
+	psql postgres://postgres@localhost/$(dbname) -f step2-lib_OsmCodes.sql
+	psql postgres://postgres@localhost/$(dbname) -f step3-lib_BR.sql
 
 sql_test:
-	psql postgres://postgres@localhost/$(dbname) -f step4_prepareGrid.sql
+	psql postgres://postgres@localhost/$(dbname) -f step4-BR_tests.sql

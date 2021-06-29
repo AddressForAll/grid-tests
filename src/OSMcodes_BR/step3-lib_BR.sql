@@ -76,7 +76,7 @@ COMMENT ON FUNCTION OSMcodes_br.cellgeom_uxy(int,int,int,int)
 */
 
 -- encode!
-CREATE FUNCTION osmcodes_br.xy_to_ggeohash(
+CREATE or replace FUNCTION osmcodes_br.xy_to_ggeohash(
   x int, -- X, first coordinate of IBGE's Albers Projection
   y int, -- Y, second coordinate of IBGE's Albers Projection
   precisao int, -- precisão depois do prefixo; number of digits in the geocode (of base_bitsize)
@@ -112,7 +112,7 @@ COMMENT ON FUNCTION OSMcodes_br.xy_to_ggeohash(int,int,int,int)
 ;
 
 -- DECODE!
-CREATE FUNCTION osmcodes_br.ggeohash_to_xybounds(
+CREATE or replace FUNCTION osmcodes_br.ggeohash_to_xybounds(
   geohash text,  -- completo, com quadrante no prefixo
   base_bitsize int default 4  -- base4 = 2 bits, base16 = 4 bits, base32 = 5 bits
 ) RETURNS text AS $f$
@@ -121,8 +121,7 @@ DECLARE
   qbounds real[];
   bounds real[];
 BEGIN
-  xyMin   := osmcodes_br.ij_to_xy(geohash);
-  qbounds := array[xyMin[1],xyMin[2], xyMin[1]+512000,xyMin[2]+512000];
+  qbounds := osmcodes_br.quadrant_to_xybounds(geohash);
   RETURN osmcodes_common.ggeohash_to_xybounds(qbounds, substr(geohash,3), base_bitsize);
 END
 $f$ LANGUAGE plpgsql IMMUTABLE;

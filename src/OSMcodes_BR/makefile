@@ -2,24 +2,34 @@ dbname=osmcodes
 
 all:
 	@echo "------------"
-	@echo "Use psql builds datatbase '$(dbname)'."
+	@echo "Will use psql and datatbase '$(dbname)'."
 	@echo "Possible targets for this makefile:"
-	@echo " * all0: build all from zero (database, schemas and tests);"
-	@echo " * sql_build: only schemas and pub scripts;"
+	@echo " * all_lite: build basic in a existing database, and tests"
+	@echo " * all_DANGER: build all from zero (database, schemas and tests);"
+	@echo " * sql_build: only build basic (schemas and pub scripts);"
 	@echo " * sql_test: only redo test scripts."
 	@echo
 	@echo " NOTES: change dbname to non-standard database."
 	@echo
 
-all0: sql_prepare sql_build sql_test
+all_lite:  sql_build sql_test
 
-sql_prepare:
-	psql postgres://postgres@localhost -c "CREATE DATABASE $(dbname)"
+all_DANGER: sql_perigo sql_build sql_test
+
+sql_perigo:
+	@echo "## Tem certeza que quer fazer DROP da base $(dbname)?  (ENTER ou ^C para sair)"
+	@read _sim_certeza_com_ENTER_
+	@psql postgres://postgres@localhost -c "DROP DATABASE $(dbname)"
+	@psql postgres://postgres@localhost -c "CREATE DATABASE $(dbname)"
 
 sql_build:
+	@echo
+	@echo "## Preparando base com PostGIS, libPub, OSMcodes-comum e OSMcodes-Brasil..."
+	@echo
 	psql postgres://postgres@localhost/$(dbname) -f step1-libPub.sql
 	psql postgres://postgres@localhost/$(dbname) -f step2-lib_OsmCodes.sql
 	psql postgres://postgres@localhost/$(dbname) -f step3-lib_BR.sql
 
 sql_test:
-	psql postgres://postgres@localhost/$(dbname) -f step4-BR_tests.sql
+	@echo "## TESTES em construção!"
+	# psql postgres://postgres@localhost/$(dbname) -f step4-BR_tests.sql

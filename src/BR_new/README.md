@@ -92,10 +92,10 @@ Na ilustração as células com geocódigos `820`,&nbsp;`821`, `822`, `823`,&nbs
 
 Casos especiais:
 
-* Se duas localidades compatilham partes de uma mesma célula, elas  compartilharão o uso da célula, e **a resolução entre porções de uma ou outra se derá pelo polígono**. Na ilustração a célula `826` é comportilhada, ou seja, coexistem as localizações `XXX-6` e `YYY-6` na mesma  célula.
+* Se duas localidades ocupam partes de uma mesma célula, elas  compartilharão o uso do seu sufixo, e **a resolução entre porções de uma ou outra se derá pelo polígono**. Na ilustração a célula `826` é comportilhada, ou seja, coexistem as localizações `XXX-6` e `YYY-6` na mesma  célula.
 
-* Se a célula não cabe na "caixa" do prefixo, mas cabe em uma caixa de mesmo tamanho, não tem problema, os identificadores não se repetem.  **Por convenção adota-se como prfixo de referência a "caixa" que contém o centróide** do polígono.  
-  
+* Se a célula não cabe na "caixa" do prefixo, mas cabe em uma caixa de **mesmo tamanho**, não tem problema, os identificadores não se repetem.  **Por convenção adota-se como prfixo de referência a "caixa" que contém o centróide** do polígono.  
+
 ------
 
 ## Instalação

@@ -1,3 +1,11 @@
+
+* [Apresentação das decisões de projeto](#apresentação-das-decisões-de-projeto)
+   - [Mais níveis e geocódigos hierárquicos](#mais-níveis-e-geocódigos-hierárquicos)
+   - [Geocódigos curtos ou mnemônicos](#geocódigos-curtos-ou-mnemônicos)
+* [Instalação](#instalação)
+
+-----
+
 ## Geohash adaptado à Grade Estatística IBGE
 
 A *grade estatística oficial* de um país é um **mosaico de polígonos regulares e de igual-área** que cobre todo o seu território. Sendo definida por uma norma oficial e estável, a grade não muda com o tempo. Por ser [espacialmente regular](https://en.wikipedia.org/wiki/Euclidean_tilings_by_convex_regular_polygons), permite a conversão automática entre grandezas extensivas (ex. população de um município) e intensivas (ex. densidade populacional num ponto), entre [geo-objetos e geo-campos](https://doi.org/10.1080/13658810600965271).

@@ -1,11 +1,3 @@
-
-* [Apresentação das decisões de projeto](#apresentação-das-decisões-de-projeto)
-   - [Mais níveis e geocódigos hierárquicos](#mais-níveis-e-geocódigos-hierárquicos)
-   - [Geocódigos curtos ou mnemônicos](#geocódigos-curtos-ou-mnemônicos)
-* [Instalação](#instalação)
-
------
-
 ## Geohash adaptado à Grade Estatística IBGE
 
 A *grade estatística oficial* de um país é um **mosaico de polígonos regulares e de igual-área** que cobre todo o seu território. Sendo definida por uma norma oficial e estável, a grade não muda com o tempo. Por ser [espacialmente regular](https://en.wikipedia.org/wiki/Euclidean_tilings_by_convex_regular_polygons), permite a conversão automática entre grandezas extensivas (ex. população de um município) e intensivas (ex. densidade populacional num ponto), entre [geo-objetos e geo-campos](https://doi.org/10.1080/13658810600965271).
@@ -20,11 +12,21 @@ A **proposta de "Nova Grade IBGE" do Instituto AddressForAll** teve por objetivo
 
 3. proporcionar um [sistema de **geocódigos hierárquicos**](https://en.wikipedia.org/wiki/Geocode#Hierarchical_grids) e compactos sobre a grade;
 
-4. fazer uso apenas de tecnologia aberta e de **alta performance** computacional, tanto na indexação (bancos de dados) como na resolução (tradução do geocódigo da célula em localização no mapa).
+4. fazer uso apenas de tecnologia **aberta** e de **alta performance**, tanto na indexação (bancos de dados) como na resolução (tradução do geocódigo da célula em localização no mapa).
 
 A solução de geocódico encontrada foi o [algortimo Geohash](https://en.wikipedia.org/wiki/Geohash), com pequenas adaptações denominadas [Geohash Generalizado](https://ppkrauss.github.io/Sfc4q/). O restante do processo de desenvolvimento da nova grade foi orientado pela tentativa de se preservar outras caracterísicas interessantes da grade IBGE, tais como a escolha do recorte sobre a América do Sul.
 
 ------
+
+CONTEÙDO
+
+* [APRESENTAÇÃO E DECISÕES DE PROJETO](#apresentação-das-decisões-de-projeto)
+   - [Mais níveis e geocódigos hierárquicos](#mais-níveis-e-geocódigos-hierárquicos)
+   - [Geocódigos curtos ou mnemônicos](#geocódigos-curtos-ou-mnemônicos)
+* [REFERÊNCIAS](#referências)
+* [INSTALAÇÃO](#instalação)
+* [DADOS](#dados)
+* [FUNÇÕES](#funções)
 
 ## Apresentação das decisões de projeto
 
@@ -60,7 +62,7 @@ O conceito de "grade completa" e "cobertura Brasil", bem como a distorção espa
 
 ![](../../assets/NovaGradeEstatIBGE-Albers-IDs.png)
 
-Graças à projeção os quadradinhos traçados na grade possuem todos a mesma área, e portanto seus dados (ex. população por célula) podem ser comparados. Isso amplia enormemente o leque de aplicações da grade e dos geocódigos baseados nela.
+Graças à projeção os quadradinhos traçados na grade possuem todos a mesma área, e portanto seus dados (ex. população por célula) podem ser comparados. Isso amplia enormemente o leque de aplicações da grade e dos geocódigos baseados nela. Em coordenadas da projeção Albers, XY, a posição do ponto inferior esquerdo da grade proposta é **(*x0_min*,*y0_min*)=(2734000,7320000)**.
 
 A grade mais importante para os dados do IBGE, a de 1 km, continua a mema. Se olharmos com _zoom_ para o extremo Sul, no  interior do quadrante 04 da Nova Grade, usando a estratégia de descartar células que não cobrem o território nacional, encontraremos em verde a grade não-descartada dos dados originais do Censo de 2010:
 
@@ -96,16 +98,78 @@ Uma das funções implementadas de *encode*/*decode* da proposta, é a que confe
 
 ![](../../assets/BR_new-encurtamento1.png)
 
-Na ilustração as células com geocódigos `820`,&nbsp;`821`, `822`, `823`,&nbsp;`826` cobre o polígono contextualizador chamado&nbsp;**XXX**, que pode ser imaginado como um nome popular e já conhecido por todos. Como o prefixo&nbsp;`82` é comum a todas elas, os geocódigos podem ser reescritos conforme seu apelido, `XXX‑0`,&nbsp;`XXX‑1`, `XXX‑2`, `XXX‑3`,&nbsp;e&nbsp;`XXX‑6`. Dessa forma os habitantes da região, que já sabem decor o que significa XXX, podem  lembrar dos geocódigos mais facilmente do que o número aleatório 82. Idem para o polígono da localidade popular&nbsp;**YYY**.
+Na ilustração as células com geocódigos `820`,&nbsp;`821`, `822`, `823`,&nbsp;`826` cobrem o polígono contextualizador chamado&nbsp;**XXX**, que pode ser imaginado como um nome popular e já conhecido por todos os habitantes das vizinhanças. Como o prefixo&nbsp;`82` é comum a todas as células da cobertura, os geocódigos podem ser reescritos conforme seu apelido, `XXX‑0`,&nbsp;`XXX‑1`, `XXX‑2`, `XXX‑3`,&nbsp;e&nbsp;`XXX‑6`. Dessa forma os habitantes da região, que já sabem decor o que significa XXX, podem lembrar dos geocódigos mais facilmente do que o número aleatório 82. Idem para o polígono da localidade popular&nbsp;**YYY**.
 
 Casos especiais:
 
 * Se duas localidades ocupam partes de uma mesma célula, elas  compartilharão o uso do seu sufixo, e **a resolução entre porções de uma ou outra se derá pelo polígono**. Na ilustração a célula `826` é comportilhada, ou seja, coexistem as localizações `XXX-6` e `YYY-6` na mesma  célula.
 
-* Se a célula não cabe na "caixa" do prefixo, mas cabe em uma caixa de **mesmo tamanho**, não tem problema, os identificadores não se repetem.  **Por convenção adota-se como prfixo de referência a "caixa" que contém o centróide** do polígono.  
+* Se a célula não cabe na "caixa" do prefixo, mas cabe em uma caixa de **mesmo tamanho**, não tem problema, os identificadores não se repetem.  **Por convenção adota-se como prfixo de referência a "caixa" que contém o centróide** do polígono.
 
-------
+## REFERÊNCIAS
 
-## Instalação
+* **Primeira apresentação formal da proposta**, em poster do evento da INDE, SBIDE, em outubro de 2020. https://inde.gov.br/images/inde/poster1/NovaGradeIBGE-poster-v2.pdf
 
-Use `make` para ver instruções e rodar _targets_ desejados. O software foi testado em PostgreSQL v12 e v13, e PostGIS v3.
+* **Discussões iniciais** no fóruom Dados Abertos, apartir de abril de 2020, e corrente. https://dadosabertos.social/t/que-tal-o-uso-mais-amplo-da-nossa-grade-estatistica-oficial/317
+
+* **Fundammentos** para a representação em **base16h** (hexadecimal adequada a *bit strings* hierárquicas) e o intercâmbio com base4, base16 (hexadecimal) e base32. http://addressforall.org/_foundations/art1.pdf
+
+* **Curva de Morton** em grades quadradas de diversos tamanhos e opções de representação de seus identificadores (base4, base16h, e base32-nvu). Animações *online* (usar Firefox) em https://ppkrauss.github.io/Sfc4q/
+
+* Fundamentos para implementações de **alta performance** na Curva de Morton.   https://mmcloughlin.com/posts/geohash-assembly
+
+Outros subsídios para o tema:
+
+* Código de Roteamento Postal (CRP) como *hack* para a distribuição pública do CEP (hoje ainda propriedade privada e patente dos Correios). https://www.openstreetmap.org.br/CRP/
+
+* Definição de Sistema de Geocódigos Hierárquicos na Wikipedia. https://en.wikipedia.org/wiki/Geocode#Hierarchical_grids
+
+* Grade IBGE discutida na Wiki do OSM. https://wiki.openstreetmap.org/wiki/Brazil/Grade_Estat%C3%ADstica_Oficial
+
+* Motivos para ainda não usarmos o [padrão DGGS do OGC](https://docs.opengeospatial.org/as/15-104r5/15-104r5.html) na grade oficial brasileira:  1. [ausência de uma implementação livre e interoperável](https://gis.stackexchange.com/q/358382/7505);  2. [ausência de implementações experimentais em ferramentas SQL](https://gis.stackexchange.com/q/360318/7505).
+
+* Filminho explicando porque a Grade Estatística é importante até nas escolas. https://www.youtube.com/watch?v=s5yrDV_c2-4
+
+* Explorando o Censo 2010 através da Grade IBGE. https://mapasinterativos.ibge.gov.br/grade/default.html
+
+-----
+
+## INSTALAÇÃO
+
+Use `make` para ver instruções e rodar _targets_ desejados. O software foi testado com as seguintes versões e configurações:
+
+* PostgreSQL v12 ou v13, e PostGIS v3. Disponível em local host como service.
+* `psql` v13. Configurado no `makefile` para rodar já autenticado pelo usuário do terminal .
+* pastas *default*: rodar o `make` a partir da própria pasta *git*, `/src/BR_new`. Geração de arquivos pelo servidor local PostgreSQL em `/tmp/pg_io`.
+
+Para testes pode-se usar `git clone https://github.com/AddressForAll/grid-tests.git` ou uma versão específica zipada, por exemplo `wget -c https://github.com/AddressForAll/grid-tests/archive/refs/tags/v0.1.0.zip`. Em seguida, estes seriam os procedimentos básicos para rodar o *make* em terminal bash:
+```sh
+cd grid-tests/src/BR_new
+make
+```
+
+## DADOS
+
+Os dados da Nova Grade, quando forem publicados, serão mantidos em [/data/BR_new](../../data/BR_new). Eles podem ser utilizados para conferir se a sua instalação está consistente, ou ainda para outros usos independentemente de ter instalado ou não o software.
+
+## FUNÇÔES
+
+A biblioteca SQL *Lib_BR* contém a implementação da proposta. Ela depende de outras bibliotecas, notadamente a genérica de grade s e geocódigos *OsmCodes*,  e  a de uso geral do AddressForAll. O código-fonte das dependências foi trazido para garantir instalação _standalone_.  Deve-se instalar na sequência, conforme *steps*: `step1-libPub.sql`, `step2-lib_OsmCodes.sql`, `step3-lib_BR.sql`  e `step4-BR_tests.sql`. O último script contém alguns testes e exemplos de uso.
+
+Funções especializadas do *schema* `osmcodes_br`:
+
+* `xy_to_ggeohash(x,y,precisao,base_bitsize)` - Geocódigo de um ponto. Entradas: as coordenadas XY Albers do ponto, o número de dígitos desejados e a notação desada.
+
+* `ggeohash_to_xybounds()` - Transforma geocódigo em descritor da diagonal do retângulo da célula.
+
+* `ggeohash_to_xy()` - Transforma geocódigo em ponto central da célula. Supondo "snap do grid" seria a *função inversa* de `xy_to_ggeohash()`.
+
+*  `ij_to_xy(quadrante_ij)` - Coordenadas Albers do canto inferior esquerdo (minX,minY) do quadrante, conforme seu identificador ij (j0,i0) fornecido.
+
+* `quadrant_to_xybounds(quadrante_ij)` - Extremidades da diagonal do quadrante_ij, expressas em Albers (mínXY e maxXY).
+
+* `cellgeom_from_ij(quadrante_ij)` - Geometria do quadrante ij expressa em projeção Albers. Quadrantes são as células do nível zero.
+
+* `cellgeom_xy(x, y, r)` - Geometria da célula com centro em (x,y) e raio inscrito r. Entrada e saída expressas em projeção Albers.
+
+* `cellgeom_xy_bycorner(cx, cy, s)` - Geometria da célula com canto inferior esqerdo em (cx,cy) e lado s (*side size*). Entrada e saída expressas em projeção Albers.

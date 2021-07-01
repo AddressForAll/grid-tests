@@ -102,15 +102,15 @@ Uma das funções implementadas de *encode*/*decode* da proposta, é a que confe
 
 Na ilustração as células com geocódigos `820`,&nbsp;`821`, `822`, `823`,&nbsp;`826` cobrem o polígono contextualizador chamado&nbsp;**XXX**, que pode ser imaginado como um nome popular e já conhecido por todos os habitantes das vizinhanças. Como o prefixo&nbsp;`82` é comum a todas as células da cobertura, os geocódigos podem ser reescritos conforme seu apelido, `XXX‑0`,&nbsp;`XXX‑1`, `XXX‑2`, `XXX‑3`,&nbsp;e&nbsp;`XXX‑6`. Dessa forma os habitantes da região, que já sabem decor o que significa XXX, podem lembrar dos geocódigos mais facilmente do que o número aleatório 82. Idem para o polígono da localidade popular&nbsp;**YYY**.
 
-Os prefixos mnemônicos XXX e YYY, quando padronizados por um país, são [geocódigos nominais](https://en.wikipedia.org/wiki/Geocode#Systems_of_standard_names), pois de fato nomeam o polígono que representa a respectiva localidade. A estratégia de encurtamento através deles cria um geocódigo misto, onde o prefixo é nominal e o sufixo um identificador de célula de grade (por exemplo `XXX-3` tem prefixo `XXX` e sufixo `3`). No software de resolução dos geocódigos os prefixos nominais são também designados *"prefixos seletors de grade"*, pois invocam não só um contexto mas um polígono específico com a sua grade específica.  
-
-No **Projeto OSM Codes**, que segue a proposta de expansão da norma RFC&nbsp;5870, os prefixos nominais são também hierárquicos e não são nomes arbitrários, partem da norma [ISO&nbsp;3166‑2](https://en.wikipedia.org/wiki/ISO_3166-2). Por exemplo o nome do polígono que define o município de SP/Piracicaba é a hierarquia de siglas `BR-SP-PIR`.
-
 Casos especiais:
 
-* Se duas localidades ocupam partes de uma mesma célula, elas  compartilharão o uso do seu sufixo, e **a resolução entre porções de uma ou outra se derá pelo polígono**. Na ilustração a célula `826` é comportilhada, ou seja, coexistem as localizações `XXX-6` e `YYY-6` na mesma  célula.
+* Se duas localidades ocupam partes de uma mesma célula, elas compartilharão o uso do seu sufixo, e **a resolução entre porções de uma ou outra se derá pelo polígono**. Na ilustração a célula `826` é comportilhada, ou seja, coexistem as localizações `XXX-6` e `YYY-6` na mesma  célula.
 
 * Se a célula não cabe na "caixa" do prefixo, mas cabe em uma caixa de **mesmo tamanho**, não tem problema, os identificadores não se repetem.  **Por convenção adota-se como prfixo de referência a "caixa" que contém o centróide** do polígono.
+
+Os prefixos mnemônicos XXX e YYY, quando padronizados por um país, são [geocódigos nominais](https://en.wikipedia.org/wiki/Geocode#Systems_of_standard_names), pois de fato nomeam o polígono que representa a respectiva localidade. A estratégia de encurtamento através deles cria um geocódigo misto, onde o prefixo é nominal e o sufixo é um identificador de célula de grade (por exemplo `XXX-3` tem prefixo `XXX` e sufixo `3`). No software de resolução dos geocódigos os prefixos nominais são também designados *"prefixos seletores de grade"*, pois invocam não só um contexto mas um polígono específico com a sua grade específica.  
+
+No **Projeto OSM Codes**, que segue a proposta de expansão da norma RFC&nbsp;5870, os prefixos nominais são também hierárquicos e não são nomes arbitrários, partem da norma [ISO&nbsp;3166‑2](https://en.wikipedia.org/wiki/ISO_3166-2). Por exemplo o nome do polígono que define o município de SP/Piracicaba é a hierarquia de siglas `BR‑SP‑PIR`.
 
 ## REFERÊNCIAS
 

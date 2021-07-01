@@ -14,7 +14,7 @@ A **proposta de "Nova Grade IBGE" do Instituto AddressForAll** teve por objetivo
 
 4. fazer uso apenas de tecnologia **aberta** e de **alta performance**, tanto na indexação (bancos de dados) como na resolução (tradução do geocódigo da célula em localização no mapa).
 
-A solução de geocódico encontrada foi o [algortimo Geohash](https://en.wikipedia.org/wiki/Geohash), com pequenas adaptações denominadas [Geohash Generalizado](https://ppkrauss.github.io/Sfc4q/). O restante do processo de desenvolvimento da nova grade foi orientado pela tentativa de se preservar outras caracterísicas interessantes da grade IBGE, tais como a escolha do recorte sobre a América do Sul.
+A solução de geocódico encontrada foi o [algortimo Geohash](https://en.wikipedia.org/wiki/Geohash), com pequenas adaptações denominadas [Geohash Generalizado](https://ppkrauss.github.io/Sfc4q/). O restante do processo de desenvolvimento da Nova Grade foi orientado pela tentativa de se preservar outras caracterísicas interessantes da grade IBGE, tais como a projeção cartográfica e a escolha do recorte sobre a América do Sul.
 
 ------
 
@@ -39,7 +39,7 @@ Quando sobrepomos a articulação original à nossa proposta (numa primeira tent
  A "grade" do IBGE é na verdade um **conjunto hierarquizado de grades**. Cada quadrante da grade IBGE original é subdividio em quadrados com lado medindo 1/5 ou 1/2 do seu tamanho para formar a grade seguinte, de maior resolução.
 A grade seguinte à *L0*, a *L1*, tem quadrados com 500/5&nbsp;km&nbsp;=&nbsp;100&nbsp;km de lado; a seguinte *L2* com 100/2&nbsp;km&nbsp;=&nbsp;50&nbsp;km; *L3* com 50/5&nbsp;km&nbsp;=&nbsp;10&nbsp;km; *L4* com 10/2&nbsp;km&nbsp;=&nbsp;5&nbsp;km; *L6* com 5/5&nbsp;km&nbsp;=&nbsp;**1&nbsp;km**.
 
-O ponto de partida na adaptação foi "**reutilizar a grade de 1 km**" (item 1 dos objetivos), que é a grade IBGE nível‑6, _L6_. Nesta reutilização está implícito também o reuso da  **Projeção Cônica de Albers padronizada pelo IBGE**.
+O ponto de partida na adaptação foi "**reutilizar a grade de 1 km**" (item 1 dos objetivos), que é a grade IBGE _L6_. Nesta reutilização está implícito também o reuso da  **Projeção Cônica de Albers padronizada pelo IBGE**.
 
 A Nova Grade tem a liberdade de ser um pouco maior, mas idealmente sua grade mais grosseira (*L0*) estaria ainda "encaixada" na articulação dos quadrantes da grade *L0* do  IBGE. No sistema Geohash Generalizado as células da grade do  nível seguinte são particionadas em 4, de modo que a cada nível o tamanho de lado da célula é dividido por 2, conforme a ilustração abaixo.
 
@@ -70,7 +70,9 @@ A grade mais importante para os dados do IBGE, a de 1 km, continua a mema. Se ol
 
 ## Mais níveis e geocódigos hierárquicos
 
-Um importante  objetivo da Nova Grade, listado acima como item 3, foi proporcionar um sistema de *geocódigos hierárquicos e compactos* sobre a grade. Além disso, conforme item 2, essa hierarquia deveria apresentar mais níveis. Para tanto adotamos o algoritmo Geohash Generalizado e mais de uma opção de representação dos seus geocódigos ([bases 16, 16h e 32](https://ppkrauss.github.io/Sfc4q/)), todos partindo da representação com 2 dígitos no nível *L0* dos quadrantes.
+As células de uma [Grade Geográfica Discreta](https://en.wikipedia.org/wiki/Discrete_global_grid) (global ou de um país) podem ser identificadas de forma única por suas coordenadas matriciais *ij*, ou por um só número, dito identificador. Esse número, que pode ser expresso através de caracteres alfanuméricos, tal como uma placa de carro, é designado [**geocódigo**](https://en.wikipedia.org/wiki/Geocode).
+
+Um importante  objetivo da Nova Grade, listado acima como item 3, foi proporcionar um sistema de *geocódigos hierárquicos e compactos* sobre a grade. Além disso, conforme item 2, essa hierarquia deveria apresentar mais níveis. Para tanto adotamos o algoritmo Geohash Generalizado, e mais de uma opção de representação dos seus geocódigos ([bases 16, 16h e 32](https://ppkrauss.github.io/Sfc4q/)), todos partindo da representação com 2 dígitos no nível *L0* dos quadrantes.
 
 <!-- Por exemplo as células de 500 metros, ou se preferir as de 1km, podem ser univocamente identificas por Geohashes Generalizados de quatro dígitos da base32. Voltando ao exemplo do quadante 04 no extremo sul, nas procimidades do Chui, cada célula tem seu identificador e está contida em células maiores com mesmo prefixo:
 
@@ -100,6 +102,10 @@ Uma das funções implementadas de *encode*/*decode* da proposta, é a que confe
 
 Na ilustração as células com geocódigos `820`,&nbsp;`821`, `822`, `823`,&nbsp;`826` cobrem o polígono contextualizador chamado&nbsp;**XXX**, que pode ser imaginado como um nome popular e já conhecido por todos os habitantes das vizinhanças. Como o prefixo&nbsp;`82` é comum a todas as células da cobertura, os geocódigos podem ser reescritos conforme seu apelido, `XXX‑0`,&nbsp;`XXX‑1`, `XXX‑2`, `XXX‑3`,&nbsp;e&nbsp;`XXX‑6`. Dessa forma os habitantes da região, que já sabem decor o que significa XXX, podem lembrar dos geocódigos mais facilmente do que o número aleatório 82. Idem para o polígono da localidade popular&nbsp;**YYY**.
 
+Os prefixos mnemônicos XXX e YYY, quando padronizados por um país, são [geocódigos nominais](https://en.wikipedia.org/wiki/Geocode#Systems_of_standard_names), pois de fato nomeam o polígono que representa a respectiva localidade. A estratégia de encurtamento através deles cria um geocódigo misto, onde o prefixo é nominal e o sufixo um identificador de célula de grade (por exemplo `XXX-3` tem prefixo `XXX` e sufixo `3`). No software de resolução dos geocódigos os prefixos nominais são também designados *"prefixos seletors de grade"*, pois invocam não só um contexto mas um polígono específico com a sua grade específica.  
+
+No **Projeto OSM Codes**, que segue a proposta de expansão da norma RFC&nbsp;5870, os prefixos nominais são também hierárquicos e não são nomes arbitrários, partem da norma [ISO&nbsp;3166‑2](https://en.wikipedia.org/wiki/ISO_3166-2). Por exemplo o nome do polígono que define o município de SP/Piracicaba é a hierarquia de siglas `BR-SP-PIR`.
+
 Casos especiais:
 
 * Se duas localidades ocupam partes de uma mesma célula, elas  compartilharão o uso do seu sufixo, e **a resolução entre porções de uma ou outra se derá pelo polígono**. Na ilustração a célula `826` é comportilhada, ou seja, coexistem as localizações `XXX-6` e `YYY-6` na mesma  célula.
@@ -117,6 +123,8 @@ Casos especiais:
 * **Curva de Morton** em grades quadradas de diversos tamanhos e opções de representação de seus identificadores (base4, base16h, e base32-nvu). Animações *online* (usar Firefox) em https://ppkrauss.github.io/Sfc4q/
 
 * Fundamentos para implementações de **alta performance** na Curva de Morton.   https://mmcloughlin.com/posts/geohash-assembly
+
+* Proposta de expansão do [protocolo GeoURI](https://en.wikipedia.org/wiki/Geo_URI_scheme) (RFC 5870 da internet) visando a interoperabilidade de geocódigos nacionais soberanos, em poster do evento da INDE, SBIDE, em outubro de 2020. https://inde.gov.br/images/inde/ANAIS_2SBIDE.pdf
 
 Outros subsídios para o tema:
 

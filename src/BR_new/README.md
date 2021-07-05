@@ -94,6 +94,8 @@ Notação e suas aplicações|Níveis hierárquicos<br/>(bits no geocódigo)|Dí
  **Base 16** (hexadecimal)<br/>*Científicas padronizadas*|níveis pares<br/>(**cada 4 bits**)|5 dígitos (nível 10) em 500 m;<br/>8 dígitos (nível 16) em 7,8 m;<br/>9 dígitos (nível 18) em 2,0 m.<br/>/ **Nova Grade Estatítica do IBGE**.
 **Base 32**<br/>*Gerais*|cada 2½ níveis<br/>(**cada 5 bits**) |4 dígitos (nível 10) em 500 m;<br/>6 dígitos (nível 15) em 15,6 m;<br/>7 dígitos (nível 17½) em ~3 m.<br/>/ **Novo CEP**, escolas e usos oficiais
 
+&nbsp; Nota: as representações são ilustradas didaticamente em [Geohash Generalizado](https://ppkrauss.github.io/Sfc4q/).
+
 ### Geocódigos curtos ou mnemônicos
 
 Uma das funções implementadas de *encode*/*decode* da proposta, é a que confere _"encurtamento pelo contexto"_ ao gecódigo proposto.
@@ -146,7 +148,7 @@ Outros subsídios para o tema:
 
 Use `make` para ver instruções e rodar _targets_ desejados. O software foi testado com as seguintes versões e configurações:
 
-* PostgreSQL v12 ou v13, e PostGIS v3. Disponível em local host como service.
+* PostgreSQL v12 ou v13, e PostGIS v3. Disponível em *localhost* como service. Rodar make com outra `pg_uri` se o usuário não for *postgres*
 * `psql` v13. Configurado no `makefile` para rodar já autenticado pelo usuário do terminal .
 * pastas *default*: rodar o `make` a partir da própria pasta *git*, `/src/BR_new`. Geração de arquivos pelo servidor local PostgreSQL em `/tmp/pg_io`.
 
@@ -155,6 +157,9 @@ Para testes pode-se usar `git clone https://github.com/AddressForAll/grid-tests.
 cd grid-tests/src/BR_new
 make
 ```
+
+O `make` sem target vai apnas listar as opções. Para rodar um target específico usar `make nomeTarget`.
+Para rodar com outra base ou outra URI de conexão com PostreSQL server, usar por exemplo <br/>`make db=outraBase pg_uri=outraConexao nomeTarget`.
 
 ## DADOS
 

@@ -6,6 +6,7 @@
  *          https://github.com/AddressForAll/WS/blob/master/src/sys_pubLib.sql
  */
 
+
 CREATE extension IF NOT EXISTS postgis;
 CREATE extension IF NOT EXISTS adminpack;  -- for pg_file_write
 

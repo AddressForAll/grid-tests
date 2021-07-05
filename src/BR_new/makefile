@@ -1,4 +1,5 @@
 dbname=osmcodes
+pg_uri=postgres://postgres@localhost
 
 all:
 	@echo "------------"
@@ -19,17 +20,17 @@ all_DANGER: sql_perigo sql_build sql_test
 sql_perigo:
 	@echo "## Tem certeza que quer fazer DROP da base $(dbname)?  (ENTER ou ^C para sair)"
 	@read _sim_certeza_com_ENTER_
-	@psql postgres://postgres@localhost -c "DROP DATABASE $(dbname)"
-	@psql postgres://postgres@localhost -c "CREATE DATABASE $(dbname)"
+	@psql $(pg_uri) -c "DROP DATABASE $(dbname)"
+	@psql $(pg_uri) -c "CREATE DATABASE $(dbname)"
 
 sql_build:
 	@echo
 	@echo "## Preparando base com PostGIS, libPub, OSMcodes-comum e OSMcodes-Brasil..."
 	@echo
-	psql postgres://postgres@localhost/$(dbname) -f step1-libPub.sql
-	psql postgres://postgres@localhost/$(dbname) -f step2-lib_OsmCodes.sql
-	psql postgres://postgres@localhost/$(dbname) -f step3-lib_BR.sql
+	psql $(pg_uri)/$(dbname) -f step1-libPub.sql
+	psql $(pg_uri)/$(dbname) -f step2-lib_OsmCodes.sql
+	psql $(pg_uri)/$(dbname) -f step3-lib_BR.sql
 
 sql_test:
 	@echo "## TESTES em construção!"
-	# psql postgres://postgres@localhost/$(dbname) -f step4-BR_tests.sql
+	# psql $(pg_uri)/$(dbname) -f step4-BR_tests.sql

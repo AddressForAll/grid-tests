@@ -68,7 +68,7 @@ Column   |            Type             | Comments
 `masc`       | integer                     | população do sexo masculino
 `fem`        | integer                     | população do sexo feminino
 `pop`        | integer                     | população total (conforme Censo 2010) no interior da célula
-`dom_ocu`    | integer                     | domicílios ocupados (pendente ref. para confirmar se "domicílios particulares permanentes" ou outros tipos)
+`dom_ocu`    | integer                     | domicílios ocupados - particulares permanentes, particulares improvisados e coletivos (todos as categorias da V4001 - Espécie no Censo Demográfico 2010).
 `shape_leng` | numeric                     | (redundante)
 `shape_area` | numeric                     | (redundante)
 `geom`       | geometry(MultiPolygon,4326) | geometria da célula em coordenadas LatLong WGS84 (sem projeção)

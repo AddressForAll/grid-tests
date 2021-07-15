@@ -1,16 +1,51 @@
 # Grade Estatística IBGE
 
-* CONVENÇÕES IBGE
+<img align="right" src="../../assets/BR_IBGE-articulacao.320px.png">
+
+Sumário:
+
+* [CONVENÇÕES IBGE](#convenções-ibge)
+    * [Estrutura das tabelas](#estrutura-das-tabelas)
     * [Nomenclatura das células](#nomenclatura-das-células)
-* ALGORITMOS IMPLANTADOS
+* [ALGORITMOS IMPLANTADOS](#algoritmos-implantados)
     * [Resolução dos identificadores de célula](#resolução-dos-identificadores-de-célula)
     * [Resolução de ponto em célula](#resolução-de-ponto-em-célula)
     * [Adaptações para outros países](#adaptações-para-outros-países)
 * [INSTALAÇÃO](#instalação)
-    * [xzxx](#xxxx)
+    * [Instalando somente o zip](#instalando-somente-o-zip)
+    * [Reproduzindo o processo completo](#reproduzindo-o-processo-completo)
 
 ------------
+
+O principal objetivo destes *scripts* é oferecer uma **represenração alernativa** à estrutura original das tabelas de grade IBGE, com as seguintes **vantagens**:
+
+1. **reduzir o tamanho da distribuição** da geometria da grade, de 849&nbsp;Mb (56 arquivos zip) para um só arquivo 43&nbsp;Mb (**5%** dos 849&nbsp;Mb).
+
+2. **estruturar de forma mais simples**, porém sem perder os dados e apĺicações geográficas.
+
+   2.1. **utilizável em qualquer banco de dados SQL simples** (por ex. SQLite), sem necessidade de extensões GIS ou geometria.
+
+   2.2. **utilizável no PostGIS** com mesmas ou mais aplicações que a distribuição original. <br/>Em paricular otimizar os algoritmos de "resolução dos identificadores de célula" (*encode/decode*), e de posição espacial em identificador de célula.
+
+3. **reduzir o tamanho no banco de dados** SQL (a 10% ou menos do tamanho original).
+
+4. **distribuir em formato mais aberto** (não-proprietário) e mais simples e interoperável do que o [Shapefile](https://en.wikipedia.org/wiki/Shapefile): arquivo [CSV](https://en.wikipedia.org/wiki/Comma-separated_values) é legível por planilha (ex. Excel) e um padrão aberto universal.
+
+
 # CONVENÇÕES IBGE
+
+Em janeiro de 2016 o IBGE publicou mais formalmente a sua Grade Estatística em [grade_estatistica/censo_2010](https://geoftp.ibge.gov.br/recortes_para_fins_estatisticos/grade_estatistica/censo_2010/), do site `IBGE.gov.br`, onde podemos acessar livremente o [documento de justificativas](https://geoftp.ibge.gov.br/recortes_para_fins_estatisticos/grade_estatistica/censo_2010/grade_estatistica.pdf) (que infelizmente não pode ser utilizado como referência técnica) e os arquivos da geometria da grade em *shapfile*.
+Se você nunca havia antes ouvido falar, veja o [filminho didáco sobre ela](https://www.youtube.com/watch?v=s5yrDV_c2-4), ou explore o Censo 2010 através da [grade *online*](https://mapasinterativos.ibge.gov.br/grade/default.html) (ilustração abaixo).
+
+![](../../assets/BR_IBGE-exploreEx1.jpg)
+
+ A "grade" do IBGE é na verdade um **conjunto hierarquizado de grades** (ou _"grid system"_), aparentemente seguindo as recomendações [INSPIRE *D2.8.I.2*](https://inspire.ec.europa.eu/documents/Data_Specifications/INSPIRE_DataSpecification_GG_v3.1.pdf), "Data Specification on Geographical Grid Systems – Technical Guidelines" de 2014, ou anterior.
+
+Cada quadrante da grade IBGE  de menor escala (na ilustração acima a grade nível *L0*) é subdividio em quadrados com lado medindo 1/5 ou 1/2 do seu tamanho para formar a grade seguinte, de menor escala e maior resolução.
+A grade seguinte à *L0*, a *L1*, tem quadrados com 500/5&nbsp;km&nbsp;=&nbsp;100&nbsp;km de lado; a seguinte *L2* com 100/2&nbsp;km&nbsp;=&nbsp;50&nbsp;km; *L3* com 50/5&nbsp;km&nbsp;=&nbsp;10&nbsp;km; *L4* com 10/2&nbsp;km&nbsp;=&nbsp;5&nbsp;km; *L6* com 5/5&nbsp;km&nbsp;=&nbsp;**1&nbsp;km**.
+
+Na distribuição da gemetria das grades de 200m e 1km foram acrescentados **dados relevantes do Censo de 2010**.
+A seguir a descrição dessa grade mesclada aos dados. Dada a precariedade da documentação, **algumas dúvidas permanecem**, e outras foram deduzidas por reengenharia, também descrita a seguir.
 
 ## Estrutura das tabelas
 
@@ -18,29 +53,29 @@ Todas as tabelas criadas pelos *shapfiles* originais do IBGE (vide ) possuem a e
 
 Column   |            Type             | Comments                 
 ----------|----------------------------|---------
-gid        | integer                     | (redundante com `id_unico`) ID de tabelas de geometria, gerado por antigo padrão.
-id_unico   | character varying(50)       | ID real da célula. String do tipo `{lado}E{X}N{Y}`, com referência XY na projeção Albers.
-nome_1km   | character varying(16)       | (redundante para apoio na agregação de 1 km)
-nome_5km   | character varying(16)       | (redundante para apoio na agregação de 5 km)
-nome_10km  | character varying(16)       | (redundante para apoio na agregação de 10 km)
-nome_50km  | character varying(16)       | (redundante para apoio na agregação de 50 km)
-nome_100km | character varying(16)       | (redundante para apoio na agregação de 100 km)
-nome_500km | character varying(16)       | (redundante para apoio na agregação de 500 km)
-quadrante  | character varying(50)       | (redundante para localizar quadrante ou apoio na agregação de 500 km)
-masc       | integer                     | população do sexo masculino
-fem        | integer                     | população do sexo feminino
-pop        | integer                     | população total (conforme Censo 2010) no interior da célula
-dom_ocu    | integer                     | ??
-shape_leng | numeric                     | (redundante)
-shape_area | numeric                     | (redundante)
-geom       | geometry(MultiPolygon,4326) | geometria da célula em coordenadas LatLong WGS84 (sem projeção)
+`gid`        | integer                     | ID de tabelas de geometria, gerado por antigo padrão.<br/>Nota: é otimizável como indexador porém redundante com `id_unico`.
+`id_unico`   | character varying(50)       | ID real da célula. String do tipo `{lado}E{X}N{Y}`, com referência XY na projeção Albers.
+`nome_1km`   | character varying(16)       | (redundante) Apoio na agregação de 1 km.
+`nome_5km`   | character varying(16)       | (redundante) Apoio na agregação de 5 km.
+`nome_10km`  | character varying(16)       | (redundante) Apoio na agregação de 10 km.
+`nome_50km`  | character varying(16)       | (redundante) Apoio na agregação de 50 km.
+`nome_100km` | character varying(16)       | (redundante) Apoio na agregação de 100 km.
+`nome_500km` | character varying(16)       | (redundante) Apoio na agregação de 500 km.
+`quadrante`  | character varying(50)       | (redundante) Localiza o quadrante ou apoia a agregação de 500 km.
+`masc`       | integer                     | população do sexo masculino
+`fem`        | integer                     | população do sexo feminino
+`pop`        | integer                     | população total (conforme Censo 2010) no interior da célula
+`dom_ocu`    | integer                     | **??** (não documentado!)
+`shape_leng` | numeric                     | (redundante)
+`shape_area` | numeric                     | (redundante)
+`geom`       | geometry(MultiPolygon,4326) | geometria da célula em coordenadas LatLong WGS84 (sem projeção)
 
 ## Nomenclatura das células
 
 Em qualquer quadrante *qq* o resultado de `SELECT DISTINCT substr(id_unico,1,4) id_prefix FROM grade_IDqq` será o conjunto
-{"1KME",&nbsp;"200M"}. Isso significa que todos os demais atributos `nome_` (e `quadrante`) são reduntantes. Só existem esses dois tipos de célula, sendo a menor delas, 200 m, usada para o meio urbano, onde se faz necessária uma cobertura mais densa. No caso das células com `id_prefix` "1KME", de 1 km de lado, teremos `id_unico=nome_1km`.
+{"1KME",&nbsp;"200M"}. Isso significa que todos os demais atributos `nome_*` (e `quadrante`) da estrutura acima, são reduntantes. Só existem esses dois tipos de célula, sendo a menor delas, 200 m, usada para o meio urbano, onde se faz necessária uma cobertura mais densa. No caso das células com `id_prefix` "1KME", de 1 km de lado, teremos `id_unico=nome_1km`.
 
-Quanto ao signiicado da string de `id_unico`, que segue a *URI Template* `{lado}E{X}N{Y}`, onde `lado` é o tamanho do lado da célula, `X` e `Y` as "coordenadas da célula" tendo como referência o seu canto... Qual canto?
+Quanto ao signiicado do valor de `id_unico`, que segue a *URI Template* `{lado}E{X}N{Y}`, onde `lado` é o tamanho do lado da célula, `X` e `Y` as "coordenadas da célula" tendo como referência o seu canto... Qual canto?
 Tomando como referência as coordenadas do centro da geometria (função PostGIS `ST_Centroid`)
 percebemos que o IBGE não adotou uma convenção regular: para células de 1 km basta truncar ou usar o canto inferior direito,
 mas para células de 200 metros é o canto superior direito.
@@ -69,6 +104,29 @@ O algoritmo foi validado contra células de 200m (flag `is_200m`) e 1km. conform
 A mesma heuristca pode ser utilizada para a recuperação de dados a partir do identificador IBGE das células de 200 m e de 1 km. A generalização para células maiores (10 km, 50 km etc.) requer uma avaliação mais detalhada, a seguir.
 
 # ALGORITMOS IMPLANTADOS
+
+Os scripts possuem duas finalidades:
+
+1. Popular uma base de dados PostgreSQL **com as tabelas dos _shapefiles_ originais** da distribuição IBGE.
+
+2. Criar e popular com os dados originais uma nova estrutura, **mais compacta** e eficiente para a **indexação de outros dados** e a **resolução dos identificadores de célula**.
+
+Na [seção INSTALAÇÃO](#instalação) abaixo, descreve-se como cada uma dessas estruturas de dados pode ser intaladas com um simples comando com o número da alternativa (1 ou 2).
+
+A seguir a descrição dos algoritmos que geram a conversão da grade original em compacta, e vice-versa, que transformam a compacta em original, e outros recursos.
+
+## Estrutura compacta
+
+Com rótulo e geometria compactados em um simples inteiro de 64 bits (*bigint* no PostgreSQL), e eliminando outras redundâncias, as informações da grade original podem ser transferidas, sem perdas, para a seguinte estrutura:
+
+Column    |   Type   | Comments
+----------|----------|--------------
+`xy`           | bigint  NOT NULL PRIMARY KEY | coordenadas (x,y) do centroide de celula, formatadas como `x*100000000 + y`.
+`is_200m`      | boolean  NOT NULL| flag indicando se é célula de 200 metros.
+`pop`          | integer  NOT NULL| população total dentro da célula.
+`pop_fem_perc` | smallint NOT NULL| percentual da população feminina
+`dom_ocu`      | smallint NOT NULL| ?? (pendente)
+
 
 ## Resolução dos identificadores de célula
 

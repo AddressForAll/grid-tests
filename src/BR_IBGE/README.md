@@ -27,7 +27,7 @@ O principal objetivo destes *scripts* é oferecer uma **represenração alernati
 
    2.2. **utilizável no PostGIS** com mesmas ou mais aplicações que a distribuição original. <br/>Em paricular otimizar os algoritmos de "resolução dos identificadores de célula" (*encode/decode*), e de posição espacial em identificador de célula.
 
-3. **reduzir o tamanho no banco de dados** SQL (a 10% ou menos do tamanho original).
+3. **reduzir o tamanho no banco de dados** SQL (a 20% ou menos do tamanho original).
 
 4. **distribuir em formato mais aberto** (não-proprietário) e mais simples e interoperável do que o [Shapefile](https://en.wikipedia.org/wiki/Shapefile): arquivo [CSV](https://en.wikipedia.org/wiki/Comma-separated_values) é legível por planilha (ex. Excel) e um padrão aberto universal.
 
@@ -121,7 +121,7 @@ Com rótulo e geometria compactados em um simples inteiro de 64 bits (*bigint* n
 
 Column    |   Type   | Comments
 ----------|----------|--------------
-`xy`           | bigint  NOT NULL PRIMARY KEY | coordenadas (x,y) do centroide de celula, formatadas como `x*100000000 + y`.
+`xy`           | bigint  NOT NULL PRIMARY KEY | coordenadas (`x*10`,`y*10`) do centroide de celula, formatadas como `x10*100000000 + y10`.
 `is_200m`      | boolean  NOT NULL| flag indicando se é célula de 200 metros.
 `pop`          | integer  NOT NULL| população total dentro da célula.
 `pop_fem_perc` | smallint NOT NULL| percentual da população feminina
@@ -202,29 +202,29 @@ FROM (
 ## Resolução de ponto em célula
 
 A solução proposta na presente versão indexada por XY permite usar a representação interna invez da busca geométrica.
-Por exemplo o ponto XY=(4580490.89,8849499.5) pode primeiramente ser arredondado para inteiros, e
+Por exemplo o ponto XY=(4580490.89,8849499.5) pode primeiramente ser arredondado para inteiros multiplicados por 10, e
 em seguida a busca se realizaria através de indexão otimizada em cada coordenada, nas tabelas `mvw_censo2010_info_Xsearch` e `mvw_censo2010_info_Ysearch`.
 
-Suponhamos a busca por **X=4580491**, ela será realizada pelo algoritmo:
+Suponhamos a busca por **X=4580491** (que na representação inteira requer multiplicar por 10), ela será realizada pelo algoritmo:
 
 ```sql
 SELECT x FROM (
   (
     SELECT x FROM grid_ibge.mvw_censo2010_info_xsearch
-    WHERE x >= 4580491 ORDER BY x LIMIT 1
+    WHERE x >= 4580491*10 ORDER BY x LIMIT 1
   )  UNION ALL (
     SELECT x FROM grid_ibge.mvw_censo2010_info_xsearch
-    WHERE x < 4580491 ORDER BY x DESC LIMIT 1
+    WHERE x < 4580491*10 ORDER BY x DESC LIMIT 1
   )
 ) t
-ORDER BY abs(4580491-x) LIMIT 1;
+ORDER BY abs(4580491*10-x) LIMIT 1;
 ```
 
 Depois de fazer mesmo em Y, obtemos a suposta célula que contém o ponto XY solicitado.
 A função  *search_cell* da biblioteca *grid_ibge* retorna não-nulo, em 0.042 ms, quando existe uma célula contendo o ponto:
 ```SQL
 SELECT * FROM grid_ibge.censo2010_info
-WHERE xy=grid_ibge.search_cell(4580490.89::int, 8849499.5::int);
+WHERE xy=grid_ibge.search_cell(4580490.89::real, 8849499.5::real);
 ```
 
 ## Adaptações para outros países
@@ -273,7 +273,14 @@ No final de `make grid_orig_get` (ou meio do `make all1`) todas as tabelas de qu
 (56 rows)
 ```
 
-Executando em seguida o `make grid_alt1_fromOrig` (final do `make all1`), as tabelas são lidas e as geometrias de célula são convertidas em coordenadas de centro (na função `grid_ibge.censo2010_info_load()`), para formar o identificador de célula com representação binária compacta (representado em *bigint*) na tabela `grid_ibge.censo2010_info`.  Essa tabela pode ainda ser gravada como CSV,  
+Executando em seguida o `make grid_alt1_fromOrig` (final do `make all1`), as tabelas são lidas e as geometrias de célula são convertidas em coordenadas de centro (na função `grid_ibge.censo2010_info_load()`), para formar o identificador de célula com representação binária compacta (representado em *bigint*) na tabela `grid_ibge.censo2010_info`.  O resultado será resumido pela comparação:
+
+resource            | tables | tot_bytes  | tot_size | tot_lines | bytes_per_line
+--------------------|--------|------------|----------|-----------|-----------
+Grade IBGE original |     56 | 4311826432 | 4112 MB  |  13286489 |        325
+Grade compacta      |      1 |  693272576 | 661 MB   |  13286489 |         52
+
+A tabela da nova grade pode ainda ser gravada como CSV,  
 
 ```sql
 COPY grid_ibge.censo2010_info TO '/tmp/grid_ibge_censo2010_info.csv' CSV HEADER;

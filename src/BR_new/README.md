@@ -1,24 +1,10 @@
 ## Geohash adaptado à Grade Estatística IBGE
 
-A *grade estatística oficial* de um país é um **mosaico de polígonos regulares e de igual-área** que cobre todo o seu território. Sendo definida por uma norma oficial e estável, a grade não muda com o tempo. Por ser [espacialmente regular](https://en.wikipedia.org/wiki/Euclidean_tilings_by_convex_regular_polygons), permite a conversão automática entre grandezas extensivas (ex. população de um município) e intensivas (ex. densidade populacional num ponto), entre [geo-objetos e geo-campos](https://doi.org/10.1080/13658810600965271).
+<img align="right" src="../../assets/NovaGradeEstatIBGE-Albers-IDs-cut1.png" style="padding:0.4em">
 
-A grade é tão importante que não pode ficar restrita a apenas um tipo de uso, a Grade Estatística do IBGE pode manter suas características originais, suprindo as necessidades do Censo, e ir além: através das adaptações propostas ela conquistaria outros nichos de uso, contemplando **múltiplas finalidades**. Por exemplo o uso da grade em dados oficiais da Saúde ou do Meio Ambiente, ou os identificadores da grade (geocódigos) para a localização de endereços postais em operações logísticas e no agroneǵócio.
+STATUS: *aguardando fechamento e homologação de [BR_IBGE](../BR_IBGE)*.
 
-A **proposta de "Nova Grade IBGE" do Instituto AddressForAll** teve por objetivo:
-
-1. [reutilizar a "**grade de 1 km**"](../BR_IBGE/README.md#grade1km) (com células de 1 km de lado) da Grade Estatística do IBE;
-
-2. incluir **mais níveis hierárquicos** entre as grades de 500 km e de 1km;
-
-3. proporcionar um [sistema de **geocódigos hierárquicos**](https://en.wikipedia.org/wiki/Geocode#Hierarchical_grids) e compactos sobre a grade;
-
-4. fazer uso apenas de tecnologia **aberta** e de **alta performance**, tanto na indexação (bancos de dados) como na resolução (tradução do geocódigo da célula em localização no mapa).
-
-A solução de geocódico encontrada foi o [algortimo Geohash](https://en.wikipedia.org/wiki/Geohash), com pequenas adaptações denominadas [Geohash Generalizado](https://ppkrauss.github.io/Sfc4q/). O restante do processo de desenvolvimento da Nova Grade foi orientado pela tentativa de se preservar outras caracterísicas interessantes da grade IBGE, tais como a projeção cartográfica e a escolha do recorte sobre a América do Sul.
-
-------
-
-CONTEÙDO
+SUMÁRIO:
 
 * [APRESENTAÇÃO E DECISÕES DE PROJETO](#apresentação-das-decisões-de-projeto)
    - [Mais níveis e geocódigos hierárquicos](#mais-níveis-e-geocódigos-hierárquicos)
@@ -27,6 +13,27 @@ CONTEÙDO
 * [INSTALAÇÃO](#instalação)
 * [DADOS](#dados)
 * [FUNÇÕES](#funções)
+
+-----
+
+A *grade estatística oficial* de um país é um **mosaico de polígonos regulares e de igual-área** que cobre todo o seu território. Sendo definida por uma norma oficial e estável, a grade não muda com o tempo. Por ser [espacialmente regular](https://en.wikipedia.org/wiki/Euclidean_tilings_by_convex_regular_polygons), permite a conversão automática entre grandezas extensivas (ex. população de um município) e intensivas (ex. densidade populacional num ponto), entre [geo-objetos e geo-campos](https://doi.org/10.1080/13658810600965271).
+
+A grade é tão importante que **não pode ficar restrita a apenas um tipo de uso**, a Grade Estatística do IBGE pode manter suas características originais, suprindo as necessidades do Censo, e ir além: através das adaptações propostas ela conquistaria outros nichos de uso, contemplando **múltiplas finalidades**. Por exemplo o uso da grade em dados oficiais da Saúde ou do Meio Ambiente, ou os identificadores da grade (geocódigos) para a localização de endereços postais em operações logísticas e no agroneǵócio.
+
+A **proposta de "Nova Grade IBGE" do Instituto AddressForAll** teve por objetivo:
+
+1. preservar a **soberania** do país, sobre os seus [geocódigos](https://en.wikipedia.org/wiki/Geocode) e sua [infraestrutura de dados espaciais](https://inde.gov.br/Inde), e a do cidadão, no seu [direito à interoperabilidade](http://eping.governoeletronico.gov.br/), à **transparência** e ao [acesso a dados públicos](https://www.lexml.gov.br/urn/urn:lex:br:federal:lei:2011-11-18;12527).<br/>(portanto fazer uso apenas de [tecnologia aberta](https://opendefinition.org/od/2.1/pt-br/) e consensual)
+
+2. [reutilizar a "**grade de 1 km**"](../BR_IBGE/README.md#grade1km) (com células de 1 km de lado) da Grade Estatística do IBE;
+
+3. incluir **mais níveis hierárquicos** entre as grades de 500 km e de 1km;
+
+4. proporcionar um [sistema de **geocódigos hierárquicos**](https://en.wikipedia.org/wiki/Geocode#Hierarchical_grids) e compactos sobre a grade;
+
+5. fazer uso de tecnologias de **alta performance**, tanto na indexação (bancos de dados) como na resolução (tradução do geocódigo da célula em localização no mapa).
+
+A solução de geocódico encontrada foi o [algortimo Geohash](https://en.wikipedia.org/wiki/Geohash), com pequenas adaptações denominadas [Geohash Generalizado](https://ppkrauss.github.io/Sfc4q/). O restante do processo de desenvolvimento da Nova Grade foi orientado pela tentativa de se preservar outras caracterísicas interessantes da grade IBGE, tais como a projeção cartográfica e a escolha do recorte sobre a América do Sul.
+
 
 ## Apresentação das decisões de projeto
 

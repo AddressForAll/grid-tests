@@ -45,6 +45,20 @@ grid_alt2_fromZip: ../../data/BR_IBGE/grid_ibge_censo2010_info.zip
 	rm /tmp/grid_ibge_censo2010_info.csv
 	psql postgres://postgres@localhost/$(pg_db) < step6_asserts.sql
 
+## save ans check files:
+grid_alt2_toZip:
+	@echo "-- creating CSV and ZIP of new grid:"
+	psql postgres://postgres@localhost/$(pg_db) -c "COPY grid_ibge.censo2010_info TO '/tmp/grid_ibge_censo2010_info.csv' CSV HEADER"
+	rm -f /tmp/grid_ibge_censo2010_info.zip
+  zip /tmp/grid_ibge_censo2010_info.zip  /tmp/grid_ibge_censo2010_info.csv
+	@echo "Saved zip at /tmp"
+
+checksums:
+	@echo "Calculating checksums of original file"
+	cd /tmp/sandbox/ibge_grade; md5sum grade_id*.zip > /tmp/sandbox/md5sum.txt
+	cd /tmp/sandbox/ibge_grade; sha256sum grade_id*.zip > /tmp/sandbox/sha256sum.txt
+	@echo "Use diff to compare with git checks"
+
 ## Concrete cleaner targets:
 
 clean_sql:

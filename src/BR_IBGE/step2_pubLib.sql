@@ -11,14 +11,18 @@ CREATE extension IF NOT EXISTS postgis;
 -------------------------------
 -- system -generic
 
-CREATE or replace FUNCTION geojson_readfile_headers(
-    f text,   -- absolute path and filename
-    missing_ok boolean DEFAULT false -- an error is raised, else (if true), the function returns NULL when file not found.
-) RETURNS JSONb AS $f$
-  SELECT j || jsonb_build_object( 'file',f,  'content_header', pg_read_file(f)::JSONB - 'features' )
-  FROM to_jsonb( pg_stat_file(f,missing_ok) ) t(j)
-  WHERE j IS NOT NULL
-$f$ LANGUAGE SQL;
+CREATE or replace FUNCTION pg_relation_lines(p_tablename text)
+RETURNS bigint LANGUAGE 'plpgsql' AS $f$
+  DECLARE
+    lines bigint;
+  BEGIN
+      EXECUTE 'SELECT COUNT(*) FROM '|| $1 INTO lines;
+      RETURN lines;
+  END
+$f$;
+COMMENT ON FUNCTION pg_relation_lines
+  IS 'run COUNT(*), a complement for pg_relation_size() function.'
+;
 
 CREATE or replace FUNCTION  jsonb_objslice(
     key text, j jsonb, rename text default null
@@ -28,6 +32,18 @@ $f$ LANGUAGE SQL IMMUTABLE;  -- complement is f(key text[], j jsonb, rename text
 COMMENT ON FUNCTION jsonb_objslice(text,jsonb,text)
   IS 'Get the key as encapsulated object, with same or changing name.'
 ;
+
+-- GeoJSON complements:
+
+CREATE or replace FUNCTION geojson_readfile_headers(
+    f text,   -- absolute path and filename
+    missing_ok boolean DEFAULT false -- an error is raised, else (if true), the function returns NULL when file not found.
+) RETURNS JSONb AS $f$
+  SELECT j || jsonb_build_object( 'file',f,  'content_header', pg_read_file(f)::JSONB - 'features' )
+  FROM to_jsonb( pg_stat_file(f,missing_ok) ) t(j)
+  WHERE j IS NOT NULL
+$f$ LANGUAGE SQL;
+
 
 CREATE or replace FUNCTION geojson_readfile_features_jgeom(file text, file_id int default null) RETURNS TABLE (
   file_id int, feature_id int, feature_type text, properties jsonb, jgeom jsonb
@@ -46,38 +62,6 @@ $f$ LANGUAGE SQL;
 COMMENT ON FUNCTION geojson_readfile_features_jgeom(text,int)
   IS 'Reads a big GeoJSON file and transforms it into a table with a json-geometry column.'
 ;
-
--------------------------------
-
-CREATE extension IF NOT EXISTS postgis;
-
--- IBGE Albers, SRID number convention in Project DigitalGuard-BR:
-INSERT into spatial_ref_sys (srid, auth_name, auth_srid, proj4text, srtext)
-VALUES (
-  952019,
-  'BR:IBGE',
-  52019,
-  '+proj=aea +lat_0=-12 +lon_0=-54 +lat_1=-2 +lat_2=-22 +x_0=5000000 +y_0=10000000 +ellps=WGS84 +units=m +no_defs',
-  $$PROJCS[
-  "Conica_Equivalente_de_Albers_Brasil",
-  GEOGCS[
-    "GCS_SIRGAS2000",
-    DATUM["D_SIRGAS2000",SPHEROID["Geodetic_Reference_System_of_1980",6378137,298.2572221009113]],
-    PRIMEM["Greenwich",0],
-    UNIT["Degree",0.017453292519943295]
-  ],
-  PROJECTION["Albers"],
-  PARAMETER["standard_parallel_1",-2],
-  PARAMETER["standard_parallel_2",-22],
-  PARAMETER["latitude_of_origin",-12],
-  PARAMETER["central_meridian",-54],
-  PARAMETER["false_easting",5000000],
-  PARAMETER["false_northing",10000000],
-  UNIT["Meter",1]
- ]$$
-)
-ON CONFLICT DO NOTHING;
-
 
 -- drop  FUNCTION geojson_readfile_features;
 CREATE or replace FUNCTION geojson_readfile_features(f text) RETURNS TABLE (
@@ -130,3 +114,32 @@ COMMENT ON FUNCTION ST_AsGeoJSONb IS $$
   Enhances ST_AsGeoJSON() PostGIS function.
   Use ST_AsGeoJSONb( geom, 6, 1, osm_id::text, stable.element_properties(osm_id) - 'name:' ).
 $$;
+
+-------------------------------
+
+-- IBGE Albers, SRID number convention in Project DigitalGuard-BR:
+INSERT into spatial_ref_sys (srid, auth_name, auth_srid, proj4text, srtext)
+VALUES (
+  952019,
+  'BR:IBGE',
+  52019,
+  '+proj=aea +lat_0=-12 +lon_0=-54 +lat_1=-2 +lat_2=-22 +x_0=5000000 +y_0=10000000 +ellps=WGS84 +units=m +no_defs',
+  $$PROJCS[
+  "Conica_Equivalente_de_Albers_Brasil",
+  GEOGCS[
+    "GCS_SIRGAS2000",
+    DATUM["D_SIRGAS2000",SPHEROID["Geodetic_Reference_System_of_1980",6378137,298.2572221009113]],
+    PRIMEM["Greenwich",0],
+    UNIT["Degree",0.017453292519943295]
+  ],
+  PROJECTION["Albers"],
+  PARAMETER["standard_parallel_1",-2],
+  PARAMETER["standard_parallel_2",-22],
+  PARAMETER["latitude_of_origin",-12],
+  PARAMETER["central_meridian",-54],
+  PARAMETER["false_easting",5000000],
+  PARAMETER["false_northing",10000000],
+  UNIT["Meter",1]
+ ]$$
+)
+ON CONFLICT DO NOTHING;

@@ -16,8 +16,8 @@ BEGIN
          substr(id_unico,1,4)='200M' AS is_200m,
          round(CASE WHEN pop>0 THEN 100.0*fem::real/pop::real ELSE 0.0 END)::smallint AS pop_fem_perc,
          dom_ocu,
-         round( ST_X(geom2) ) gx,
-         round( ST_Y(geom2) ) gy,
+         round( ST_X(geom2)*10.0 ) gx,
+         round( ST_Y(geom2)*10.0 ) gy,
          geom
     FROM (
      SELECT *, ST_Transform( ST_Centroid(geom), 952019 ) AS geom2 FROM tg
@@ -43,10 +43,35 @@ $f$ LANGUAGE PLpgSQL;
 COMMENT ON FUNCTION grid_ibge.censo2010_info_load
  IS 'Insere todas as células de um quadrante da Grade Estatística IBGE.';
 
-SELECT  grid_ibge.censo2010_info_load(table_name)
-FROM information_schema.tables
-WHERE table_schema='public' AND table_name LIKE 'grade_id%'
-ORDER BY table_name
+CREATE or replace VIEW vw_tmp_ibgetabs AS
+  SELECT  table_name
+  FROM information_schema.tables
+  WHERE table_schema='public' AND table_name LIKE 'grade_id%'
+  ORDER BY table_name
 ;
--- DROP FUNCTION grid_ibge.censo2010_info_load;
--- COPY grid_ibge.censo2010_info TO '/tmp/grid_ibge_censo2010_info.csv' CSV HEADER;
+
+--- INGESTÃO:
+
+DELETE FROM grid_ibge.censo2010_info; -- is a refresh, ignores old data.
+SELECT grid_ibge.censo2010_info_load(table_name) FROM vw_tmp_ibgetabs;
+
+-- Volumetria comparativa:
+SELECT resource, tables, tot_bytes, pg_size_pretty(tot_bytes) tot_size,
+       tot_lines, round(tot_bytes/tot_lines) AS bytes_per_line
+FROM (
+  SELECT 'Grade IBGE original' AS resource, COUNT(*) as tables,
+         SUM(pg_relation_size(table_name::regclass)) AS tot_bytes,
+         SUM(pg_relation_lines(table_name)) AS tot_lines
+  FROM vw_tmp_ibgetabs
+  UNION
+  SELECT 'Grade compacta', 1,
+         pg_relation_size('grid_ibge.censo2010_info'),
+         pg_relation_lines('grid_ibge.censo2010_info')
+) t;
+
+
+-----------
+-- LIMPEZA:
+--   DROP das tabelas listadas em vw_tmp_ibgetabs;
+--   DROP FUNCTION grid_ibge.censo2010_info_load;
+--   DROP VIEW vw_tmp_ibgetabs;

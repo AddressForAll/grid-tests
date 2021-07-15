@@ -4,7 +4,7 @@
 
 Sumário:
 
-* [CONVENÇÕES IBGE](#convenções-ibge)
+* [CONVENÇÕES DO IBGE](#convenções-do-ibge)
     * [Estrutura das tabelas](#estrutura-das-tabelas)
     * [Nomenclatura das células](#nomenclatura-das-células)
 * [ALGORITMOS IMPLANTADOS](#algoritmos-implantados)
@@ -17,24 +17,27 @@ Sumário:
 
 ------------
 
-O principal objetivo destes *scripts* é oferecer uma **represenração alernativa** à estrutura original das tabelas de grade IBGE, com as seguintes **vantagens**:
+O presente projeto oferece *scripts* para redistribuir mais eficientremente a Grade Estatística oficial do IBGE, e para aprimorar seu uso em bancos de dados. Resultou em uma versão otimizada, com os mesmos dados, porém viabilizando novas aplicações.
 
-1. **reduzir o tamanho da distribuição** da geometria da grade, de 849&nbsp;Mb (56 arquivos zip) para um só arquivo 43&nbsp;Mb (**5%** dos 849&nbsp;Mb).
+O principal objetivo foi oferecer uma **estrutura de dados alternativa** à estrutura original, batizada de **Grade Estatística IBGE Compacta**, com as seguintes **vantagens**: <!-- O principal objetivo destes *scripts* é oferecer uma **estrutura de dados alternativa** à estrutura original dos *shapfiles* de grade IBGE, com as seguintes **vantagens**:-->
 
-2. **estruturar de forma mais simples**, porém sem perder os dados e apĺicações geográficas.
+1. **reduzir o tamanho da distribuição** da geometria da grade, de 849&nbsp;Mb (56 arquivos zip) para um só arquivo 43&nbsp;Mb zip (**5%** dos 849&nbsp;Mb).
 
-   2.1. **utilizável em qualquer banco de dados SQL simples** (por ex. SQLite), sem necessidade de extensões GIS ou geometria.
+2. **estruturar de forma mais simples**, capaz de reproduzir funcionalmente os dados estrutura originais, e capaz ainda de ser utilizada:  
 
-   2.2. **utilizável no PostGIS** com mesmas ou mais aplicações que a distribuição original. <br/>Em paricular otimizar os algoritmos de "resolução dos identificadores de célula" (*encode/decode*), e de posição espacial em identificador de célula.
+   2.1. **em qualquer banco de dados SQL simples** (por ex. [SQLite](https://en.wikipedia.org/wiki/SQLite)), sem necessidade de extensões GIS ou geometria.
 
-3. **reduzir o tamanho no banco de dados** SQL (a 20% ou menos do tamanho original).
+   2.2. **no [PostGIS](https://en.wikipedia.org/wiki/PostGIS)** com as mesmas (ou mais) aplicações que a distribuição original. <br/>Em paricular **otimizar** os algoritmos de "resolução dos identificadores de célula" (*encode/decode*), e de posição espacial em identificador de célula.
 
-4. **distribuir em formato mais aberto** (não-proprietário) e mais simples e interoperável do que o [Shapefile](https://en.wikipedia.org/wiki/Shapefile): arquivo [CSV](https://en.wikipedia.org/wiki/Comma-separated_values) é legível por planilha (ex. Excel) e um padrão aberto universal.
+3. **reduzir a ocupação em disco no banco de dados SQL** (a 20% ou menos do tamanho original).
+
+4. **distribuir em formato mais aberto** (não-proprietário) e mais simples e interoperável do que o [Shapefile](https://en.wikipedia.org/wiki/Shapefile): o formato [CSV](https://en.wikipedia.org/wiki/Comma-separated_values) é legível até por planilha (ex. Excel) e é um padrão aberto universal.
 
 
-# CONVENÇÕES IBGE
+# CONVENÇÕES DO IBGE
 
 Em janeiro de 2016 o IBGE publicou mais formalmente a sua Grade Estatística em [grade_estatistica/censo_2010](https://geoftp.ibge.gov.br/recortes_para_fins_estatisticos/grade_estatistica/censo_2010/), do site `IBGE.gov.br`, onde podemos acessar livremente o [documento de justificativas](https://geoftp.ibge.gov.br/recortes_para_fins_estatisticos/grade_estatistica/censo_2010/grade_estatistica.pdf) (que infelizmente não pode ser utilizado como referência técnica) e os arquivos da geometria da grade em *shapfile*.
+
 Se você nunca havia antes ouvido falar, veja o [filminho didáco sobre ela](https://www.youtube.com/watch?v=s5yrDV_c2-4), ou explore o Censo 2010 através da [grade *online*](https://mapasinterativos.ibge.gov.br/grade/default.html) (ilustração abaixo).
 
 ![](../../assets/BR_IBGE-exploreEx1.jpg)
@@ -65,7 +68,7 @@ Column   |            Type             | Comments
 `masc`       | integer                     | população do sexo masculino
 `fem`        | integer                     | população do sexo feminino
 `pop`        | integer                     | população total (conforme Censo 2010) no interior da célula
-`dom_ocu`    | integer                     | **??** (não documentado!)
+`dom_ocu`    | integer                     | domicílios ocupados (pendente ref. para confirmar se "domicílios particulares permanentes" ou outros tipos)
 `shape_leng` | numeric                     | (redundante)
 `shape_area` | numeric                     | (redundante)
 `geom`       | geometry(MultiPolygon,4326) | geometria da célula em coordenadas LatLong WGS84 (sem projeção)

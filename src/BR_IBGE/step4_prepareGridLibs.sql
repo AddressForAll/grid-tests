@@ -1,6 +1,6 @@
 --
 -- Grade IBGE em uma nova representação, minimalista, mais leve para o banco de dados, e com "custo geometria" opcional.
--- Representação orientada às coordenadas XY dos centroides das células da grade.
+-- Representação orientada às coordenadas XY10 dos centroides das células da grade.
 --
 
 -- -- -- --
@@ -13,7 +13,7 @@ CREATE SCHEMA IF NOT EXISTS grid_ibge;
 -----
 
 CREATE TABLE grid_ibge.censo2010_info (
-  xy bigint NOT NULL PRIMARY KEY,  -- x*100000000 + y como centroide de celula de 1 km
+  gid bigint NOT NULL PRIMARY KEY,  -- ID com informação embutida, centroide da célula na forma (x*10)*100000000 + (y*10)
   is_200m boolean NOT NULL,        -- excecao ao 1km, celula de 200 metros, espaço urbano.
   pop int NOT NULL,   -- população total dentro da célula
   pop_fem_perc smallint NOT NULL, -- CHECK(pop_fem_perc BETWEEN 0 AND 100), percentual da população feminina
@@ -22,61 +22,58 @@ CREATE TABLE grid_ibge.censo2010_info (
 
 ------
 
-CREATE FUNCTION grid_ibge.coordinate_encode10(x bigint, y bigint) RETURNS bigint AS $f$
-  SELECT x*100000000::bigint + y
+CREATE FUNCTION grid_ibge.coordinate_encode10(x10 bigint, y10 bigint) RETURNS bigint AS $f$
+  SELECT x10*100000000::bigint + y10
 $f$ LANGUAGE SQL IMMUTABLE;
 COMMENT ON FUNCTION grid_ibge.coordinate_encode10(bigint,bigint)
-  IS 'Encodes two valid-range BigInts into one BigInt'
+  IS 'Encodes two valid-range BigInts (coordinates) into one BigInt (gid)'
 ;
 -- MOST IMPORTANT:
 CREATE FUNCTION grid_ibge.coordinate_encode(x real, y real) RETURNS bigint AS $wrap$
   SELECT grid_ibge.coordinate_encode(round(x*10)::bigint, round(y*10)::bigint)
 $wrap$ LANGUAGE SQL IMMUTABLE;
 COMMENT ON FUNCTION grid_ibge.coordinate_encode(int,int)
-  IS 'Encodes real coordinates into one BigInt, multiplying by 10 before cast'
+  IS 'Encodes real coordinates into gid, multiplying each coordinate by 10 before cast'
 ;
 
-CREATE FUNCTION grid_ibge.coordinate_encode10(x int, y int) RETURNS bigint AS $wrap$
-  SELECT grid_ibge.coordinate_encode10(x::bigint, y::bigint)
+CREATE FUNCTION grid_ibge.coordinate_encode10(x10 int, y10 int) RETURNS bigint AS $wrap$
+  SELECT grid_ibge.coordinate_encode10(x10::bigint, y10::bigint)
 $wrap$ LANGUAGE SQL IMMUTABLE;
 COMMENT ON FUNCTION grid_ibge.coordinate_encode10(int,int)
-  IS 'Encodes two valid-range Integers into one BigInt'
+  IS 'Encodes two valid-range Integers (x10,y10) into one BigInt (gid)'
 ;
 
-CREATE FUNCTION grid_ibge.coordinate_decode10(xy bigint) RETURNS int[] AS $f$
-  SELECT array[ x::int,  (xy - 100000000::bigint * x::bigint)::int]
-  FROM ( SELECT floor(xy/100000000::bigint) as x ) t
+CREATE FUNCTION grid_ibge.coordinate_decode10(gid bigint) RETURNS int[] AS $f$
+  SELECT array[ x::int,  (gid - 100000000::bigint * x::bigint)::int]
+  FROM ( SELECT floor(gid/100000000::bigint) as x ) t
 $f$ LANGUAGE SQL IMMUTABLE;
 COMMENT ON FUNCTION grid_ibge.coordinate_decode10(bigint)
-  IS 'Decodes a XY valid-range bigint into two integer multi10-coordinates, as array'
+  IS 'Decodes gid (or any XY10 valid-range bigint) into two integer multi10-coordinates, as array'
 ;
 /* TEST with grade_id45, grade_id04, grade_id60, grade_id69, grade_id93:
- SELECT x,y, xy
+ SELECT x,y, gid
  FROM (
   SELECT round( ST_x(geom) )::int x, round( ST_y(geom) )::int y
   FROM ( SELECT ST_Transform(  ST_centroid(geom),  952019) AS geom FROM grade_id45 ) t1
- ) t2, LATERAL grid_ibge.coordinate_decode10(  grid_ibge.coordinate_encode10(x,y)  ) as xy
- WHERE xy[1]!=x OR xy[2]!=y;
+ ) t2, LATERAL grid_ibge.coordinate_decode10(  grid_ibge.coordinate_encode10(x,y)  ) as gid
+ WHERE gid[1]!=x OR gid[2]!=y;
 */
 
 CREATE MATERIALIZED VIEW grid_ibge.mvw_censo2010_info_Xsearch AS
-  SELECT DISTINCT (grid_ibge.coordinate_decode10(xy))[1] AS x
+  SELECT DISTINCT (grid_ibge.coordinate_decode10(gid))[1] AS x10
   FROM grid_ibge.censo2010_info
 ;
 CREATE INDEX mvw_censo2010_info_xsearch_xbtree ON grid_ibge.mvw_censo2010_info_xsearch(x);
 
 CREATE MATERIALIZED VIEW grid_ibge.mvw_censo2010_info_Ysearch AS
-  SELECT DISTINCT (grid_ibge.coordinate_decode10(xy))[2] AS y
+  SELECT DISTINCT (grid_ibge.coordinate_decode10(gid))[2] AS y10
   FROM grid_ibge.censo2010_info
 ;
 CREATE INDEX mvw_censo2010_info_ysearch_ybtree ON grid_ibge.mvw_censo2010_info_Ysearch(y);
 
 -----
-CREATE FUNCTION grid_ibge.search_cell(p_x real, p_y real) RETURNS bigint AS $wrap$
-  SELECT grid_ibge.search10_cell( round(p_x*10.0)::int, round(p_y*10.0)::int );
-$wrap$ LANGUAGE SQL IMMUTABLE;
 
-CREATE FUNCTION grid_ibge.search10_cell(p_x int, p_y int) RETURNS bigint AS $f$
+CREATE FUNCTION grid_ibge.search_xy10(p_x int, p_y int) RETURNS bigint AS $f$
  SELECT grid_ibge.coordinate_encode10(t1x.x, t1y.y)
  FROM (
   SELECT x FROM (
@@ -107,21 +104,24 @@ CREATE FUNCTION grid_ibge.search10_cell(p_x int, p_y int) RETURNS bigint AS $f$
 ) t1y
 $f$ LANGUAGE SQL IMMUTABLE;
 
+CREATE FUNCTION grid_ibge.search_cell(p_x real, p_y real) RETURNS bigint AS $wrap$
+  SELECT grid_ibge.search_xy10( round(p_x*10.0)::int, round(p_y*10.0)::int );
+$wrap$ LANGUAGE SQL IMMUTABLE;
 
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 -- Reproduzindo a grade original a partir da compacta:
 
 CREATE or replace FUNCTION grid_ibge.xy10_to_quadrante(
-  x int, -- X*10, first coordinate of IBGE's Albers Projection
-  y int -- Y*10, second coordinate of IBGE's Albers Projection
+  x10 int, -- X*10, first coordinate of IBGE's Albers Projection
+  y10 int -- Y*10, second coordinate of IBGE's Albers Projection
 ) RETURNS int AS $f$
 DECLARE
   dx0 real; dy0 real; -- deltas
   i0 int; j0 int;   -- level0 coordinates
   ij int;           -- i0 and j0 as standard quadrant-indentifier.
 BEGIN
-  dx0 := x::real/10.0 - 2800000.0;  dy0 := y::real/10.0 - 7350000.0; -- encaixa na box dos quadrantes
-  -- reduzir 15 e 23,  não são válidos aqui:
+  dx0 := x10::real/10.0 - 2800000.0;  dy0 := y10::real/10.0 - 7350000.0; -- encaixa na box dos quadrantes
+  -- BUG! reduzir 15 e 23,  não são válidos aqui:
   i0 := floor( 15.341::real * dx0/7800000.0::real )::int;
   j0 := floor( 23.299::real * dy0/12350000.0::real )::int;
   ij := i0 + j0*10;
@@ -142,9 +142,9 @@ CREATE or replace FUNCTION grid_ibge.xy_to_quadrante(
   SELECT grid_ibge.xy10_to_quadrante(round(x*10.0)::int, round(y*10.0)::int);
 $wrap$ LANGUAGE SQL IMMUTABLE;
 
-CREATE FUNCTION grid_ibge.xy10_to_quadrante(p_xy bigint) RETURNS int AS $wrap$
-  SELECT grid_ibge.xy10_to_quadrante(xy[1],xy[2])
-  FROM ( SELECT grid_ibge.coordinate_decode10(p_xy) xy ) t
+CREATE FUNCTION grid_ibge.gid_to_quadrante(p_gid bigint) RETURNS int AS $wrap$
+  SELECT grid_ibge.xy10_to_quadrante(gid[1],gid[2])
+  FROM ( SELECT grid_ibge.coordinate_decode10(p_gid) gid ) t
 $wrap$ LANGUAGE SQL IMMUTABLE;
 
 ------
@@ -169,17 +169,17 @@ COMMENT ON FUNCTION grid_ibge.draw_cell(int,int,int,boolean,int)
 ;
 
 CREATE FUNCTION grid_ibge.draw_cell(
-  cx int,  -- Center X*10
-  cy int,  -- Center Y*10
+  cx10 int,  -- Center X*10
+  cy10 int,  -- Center Y*10
   d int,   -- diâmetro do circulo inscrito
   p_translate boolean DEFAULT false, -- true para converter em LatLong (WGS84 sem projeção)
   p_srid int DEFAULT 952019          -- SRID da grade (default IBGE)
 ) RETURNS geometry AS $wrap$
   SELECT grid_ibge.draw_cell(rcx, rcy, d, p_translate, p_srid)
-  FROM ( SELECT cx::real/10.0 AS rcx, cy::real/10.0 AS rcy )
+  FROM ( SELECT cx10::real/10.0 AS rcx, cy10::real/10.0 AS rcy )
 $wrap$ LANGUAGE SQL IMMUTABLE;
 COMMENT ON FUNCTION grid_ibge.draw_cell(int,int,int,boolean,int)
-  IS '(wrap for draw_cell of real coordinates) Draws a square-cell centered on the requested point XY*10, with requested radius (half side) and optional translation and SRID.'
+  IS '(wrap for draw_cell of real coordinates) Draws a square-cell centered on the requested point gid*10, with requested radius (half side) and optional translation and SRID.'
 ;
 
 CREATE FUNCTION grid_ibge.draw_cell(
@@ -204,7 +204,7 @@ CREATE FUNCTION grid_ibge.draw_cell(
   FROM (SELECT grid_ibge.coordinate_decode10(cXY) xy ) t
 $wrap$ LANGUAGE SQL IMMUTABLE;
 COMMENT ON FUNCTION grid_ibge.draw_cell(bigint,int,boolean,int)
-  IS 'Wrap to draw_cell(int,int,*) using XY key instead coordinates.'
+  IS 'Wrap to draw_cell(int,int,*) using gid (embedding XY key) instead coordinates.'
 ;
 
 ----------------------------
@@ -214,19 +214,19 @@ COMMENT ON FUNCTION grid_ibge.draw_cell(bigint,int,boolean,int)
 
 -- DROP VIEW grid_ibge.vw_original_ibge_rebuild;
 CREATE VIEW grid_ibge.vw_original_ibge_rebuild AS
-  SELECT xy as gid,
+  SELECT gid,
          'idunico' AS id_unico, -- revisar
          'nome_1km' AS nome_1km,  --revisar
-         grid_ibge.xy10_to_quadrante(xy) quadrante,
+         grid_ibge.gid_to_quadrante(gid) quadrante,
          pop-fem AS masc,
          fem,
          pop,
          dom_ocu,
-         grid_ibge.draw_cell(xy, CASE WHEN is_200m THEN 200 ELSE 1000 END) geom
+         grid_ibge.draw_cell(gid, CASE WHEN is_200m THEN 200 ELSE 1000 END) geom
   FROM (
    SELECT *,
           ROUND(pop*pop_fem_perc::real/100.0)::int AS fem
-          --,grid_ibge.coordinate_decode10(xy) x_y
+          --,grid_ibge.coordinate_decode10(gid) x_y
    FROM grid_ibge.censo2010_info
   ) t
 ;
@@ -252,12 +252,12 @@ CREATE or replace VIEW vwid45_grade_ibge_rebuild AS
 
 -----------------------------
 
---CREATE MATERIALIZED VIEW grid_ibge.kx_censo2010_geomcell AS -- xy, quadrante, geom.
+--CREATE MATERIALIZED VIEW grid_ibge.kx_censo2010_geomcell AS -- gid, quadrante, geom.
 --CREATE UNIQUE INDEX grid_ibge_kx_censo2010_geomcell
---  ON grid_ibge.kx_censo2010_geomcell (xy);
---CREATE MATERIALIZED VIEW grid_ibge.kx_censo2010_geomcenter AS -- xy, quadrante, geom.
+--  ON grid_ibge.kx_censo2010_geomcell (gid);
+--CREATE MATERIALIZED VIEW grid_ibge.kx_censo2010_geomcenter AS -- gid, quadrante, geom.
 --CREATE UNIQUE INDEX grid_ibge_kx_censo2010_geomcenter
---  ON grid_ibge.kx_censo2010_geomcenter (xy);
+--  ON grid_ibge.kx_censo2010_geomcenter (gid);
 
 
 -----

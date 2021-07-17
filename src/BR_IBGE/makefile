@@ -50,7 +50,7 @@ grid_alt2_toZip:
 	@echo "-- creating CSV and ZIP of new grid:"
 	psql postgres://postgres@localhost/$(pg_db) -c "COPY grid_ibge.censo2010_info TO '/tmp/grid_ibge_censo2010_info.csv' CSV HEADER"
 	rm -f /tmp/grid_ibge_censo2010_info.zip
-  zip /tmp/grid_ibge_censo2010_info.zip  /tmp/grid_ibge_censo2010_info.csv
+	zip /tmp/grid_ibge_censo2010_info.zip  /tmp/grid_ibge_censo2010_info.csv
 	@echo "Saved zip at /tmp"
 
 checksums:

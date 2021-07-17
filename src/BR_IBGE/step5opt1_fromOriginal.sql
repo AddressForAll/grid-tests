@@ -23,7 +23,7 @@ BEGIN
     ) t
    ),
    ins AS (
-   INSERT INTO grid_ibge.censo2010_info(xy, is_200m, pop, pop_fem_perc, dom_ocu)
+   INSERT INTO grid_ibge.censo2010_info(gid, is_200m, pop, pop_fem_perc, dom_ocu)
      SELECT grid_ibge.coordinate_encode(gx,gy), is_200m, pop, pop_fem_perc, dom_ocu::smallint
      FROM coredata
      ORDER BY 1

@@ -30,9 +30,9 @@ COMMENT ON FUNCTION grid_ibge.coordinate_encode10(bigint,bigint)
 ;
 -- MOST IMPORTANT:
 CREATE FUNCTION grid_ibge.coordinate_encode(x real, y real) RETURNS bigint AS $wrap$
-  SELECT grid_ibge.coordinate_encode(round(x*10)::bigint, round(y*10)::bigint)
+  SELECT grid_ibge.coordinate_encode10(round(x*10)::bigint, round(y*10)::bigint)
 $wrap$ LANGUAGE SQL IMMUTABLE;
-COMMENT ON FUNCTION grid_ibge.coordinate_encode(int,int)
+COMMENT ON FUNCTION grid_ibge.coordinate_encode(real,real)
   IS 'Encodes real coordinates into gid, multiplying each coordinate by 10 before cast'
 ;
 
@@ -63,44 +63,44 @@ CREATE MATERIALIZED VIEW grid_ibge.mvw_censo2010_info_Xsearch AS
   SELECT DISTINCT (grid_ibge.coordinate_decode10(gid))[1] AS x10
   FROM grid_ibge.censo2010_info
 ;
-CREATE INDEX mvw_censo2010_info_xsearch_xbtree ON grid_ibge.mvw_censo2010_info_xsearch(x);
+CREATE INDEX mvw_censo2010_info_xsearch_xbtree ON grid_ibge.mvw_censo2010_info_xsearch(x10);
 
 CREATE MATERIALIZED VIEW grid_ibge.mvw_censo2010_info_Ysearch AS
   SELECT DISTINCT (grid_ibge.coordinate_decode10(gid))[2] AS y10
   FROM grid_ibge.censo2010_info
 ;
-CREATE INDEX mvw_censo2010_info_ysearch_ybtree ON grid_ibge.mvw_censo2010_info_Ysearch(y);
+CREATE INDEX mvw_censo2010_info_ysearch_ybtree ON grid_ibge.mvw_censo2010_info_Ysearch(y10);
 
 -----
 
 CREATE FUNCTION grid_ibge.search_xy10(p_x int, p_y int) RETURNS bigint AS $f$
- SELECT grid_ibge.coordinate_encode10(t1x.x, t1y.y)
+ SELECT grid_ibge.coordinate_encode10(t1x.x10, t1y.y10)
  FROM (
-  SELECT x FROM (
+  SELECT x10 FROM (
     (
-      SELECT x
+      SELECT x10
       FROM grid_ibge.mvw_censo2010_info_Xsearch
-      WHERE x >= p_x ORDER BY x LIMIT 1
+      WHERE x10 >= p_x ORDER BY x10 LIMIT 1
     )  UNION ALL (
-      SELECT x
+      SELECT x10
       FROM grid_ibge.mvw_censo2010_info_Xsearch
-      WHERE x < p_x ORDER BY x DESC LIMIT 1
+      WHERE x10 < p_x ORDER BY x10 DESC LIMIT 1
     )
   ) t0x
-  ORDER BY abs(p_x-x) LIMIT 1
+  ORDER BY abs(p_x-x10) LIMIT 1
 ) t1x, (
-  SELECT y FROM (
+  SELECT y10 FROM (
     (
-      SELECT y
+      SELECT y10
       FROM grid_ibge.mvw_censo2010_info_Ysearch
-      WHERE y >= p_y ORDER BY y LIMIT 1
+      WHERE y10 >= p_y ORDER BY y10 LIMIT 1
     )  UNION ALL (
-      SELECT y
+      SELECT y10
       FROM grid_ibge.mvw_censo2010_info_Ysearch
-      WHERE y < p_y ORDER BY y DESC LIMIT 1
+      WHERE y10 < p_y ORDER BY y10 DESC LIMIT 1
     )
   ) t0y
-  ORDER BY abs(p_y-y) LIMIT 1
+  ORDER BY abs(p_y-y10) LIMIT 1
 ) t1y
 $f$ LANGUAGE SQL IMMUTABLE;
 
@@ -164,7 +164,7 @@ FROM (
   ), p_srid) AS geom
 ) t
 $f$ LANGUAGE SQL IMMUTABLE;
-COMMENT ON FUNCTION grid_ibge.draw_cell(int,int,int,boolean,int)
+COMMENT ON FUNCTION grid_ibge.draw_cell(real,real,int,boolean,int)
   IS 'Draws a square-cell centered on the requested point, with requested radius (half side) and optional translation and SRID.'
 ;
 
@@ -175,8 +175,8 @@ CREATE FUNCTION grid_ibge.draw_cell(
   p_translate boolean DEFAULT false, -- true para converter em LatLong (WGS84 sem projeção)
   p_srid int DEFAULT 952019          -- SRID da grade (default IBGE)
 ) RETURNS geometry AS $wrap$
-  SELECT grid_ibge.draw_cell(rcx, rcy, d, p_translate, p_srid)
-  FROM ( SELECT cx10::real/10.0 AS rcx, cy10::real/10.0 AS rcy )
+  SELECT grid_ibge.draw_cell(rcx::int, rcy::int, d, p_translate, p_srid)
+  FROM ( SELECT cx10::real/10.0 AS rcx, cy10::real/10.0 AS rcy ) AS sub
 $wrap$ LANGUAGE SQL IMMUTABLE;
 COMMENT ON FUNCTION grid_ibge.draw_cell(int,int,int,boolean,int)
   IS '(wrap for draw_cell of real coordinates) Draws a square-cell centered on the requested point gid*10, with requested radius (half side) and optional translation and SRID.'
@@ -188,7 +188,7 @@ CREATE FUNCTION grid_ibge.draw_cell(
   p_translate boolean DEFAULT false, -- true para converter em LatLong (WGS84 sem projeção)
   p_srid int DEFAULT 952019          -- SRID da grade (default IBGE)
 ) RETURNS geometry AS $wrap$
-  SELECT grid_ibge.draw_cell( cXY[1], cXY[2], $2, $3, $4 )
+  SELECT grid_ibge.draw_cell( cXY[1]::int, cXY[2]::int, $2, $3, $4 )
 $wrap$ LANGUAGE SQL IMMUTABLE;
 COMMENT ON FUNCTION grid_ibge.draw_cell(int[],int,boolean,int)
   IS 'Wrap to draw_cell(int,int,*).'

@@ -5,4 +5,6 @@
 -- -- -- -- -- -- -- -- -- -- --
 -- Processo de ingestão do zip, ver make get_zcompact:
 
-COPY grid_ibge.censo2010_info FROM '/tmp/grid_ibge_censo2010_info.csv' CSV HEADER
+DELETE grid_ibge.censo2010_info;
+
+COPY grid_ibge.censo2010_info FROM '/tmp/grid_ibge_censo2010_info.csv' CSV HEADER;

@@ -12,7 +12,10 @@ info:
 	@echo " * grid_orig_get: download and build the original Grade IBGE on database"
 	@echo " * grid_alt1_fromOrig: builds by alternative 1, from original, the Compact IBGE grid"
 	@echo " * grid_alt2_fromZip: builds, by alternative 2, from Zip, the Compact IBGE grid"
-	@echo " * clean: remove all IBGE tables and files"
+	@echo "Optional targets for alternative 1:"
+	@echo " * grid_alt1_checksums: create TXT files of checksums, from IBGE downloads"
+	@echo " * grid_alt1_toZip: generates the compact Zip after build from new original version"
+	@echo " * grid_alt1_clean: remove all IBGE tables and files"
 
 ## Abstract targets:
 
@@ -20,7 +23,7 @@ all1: sql_prepare grid_orig_get grid_alt1_fromOrig
 
 all2: sql_prepare grid_alt2_fromZip
 
-clean: clean_sql clean_files
+grid_alt1_clean: grid_alt1_clean_sql grid_alt1_clean_files
 
 ## Concrete builder targets:
 
@@ -42,29 +45,31 @@ grid_alt2_fromZip: ../../data/BR_IBGE/grid_ibge_censo2010_info.zip
 	psql postgres://postgres@localhost/$(pg_db) < step4_prepareGridLibs.sql
 	unzip -d /tmp  ../../data/BR_IBGE/grid_ibge_censo2010_info.zip
 	psql postgres://postgres@localhost/$(pg_db) < step5opt2_fromCsv.sql
-	rm /tmp/grid_ibge_censo2010_info.csv
+	rm -f /tmp/grid_ibge_censo2010_info.csv
 	psql postgres://postgres@localhost/$(pg_db) < step6_asserts.sql
 
-## save ans check files:
-grid_alt2_toZip:
-	@echo "-- creating CSV and ZIP of new grid:"
-	psql postgres://postgres@localhost/$(pg_db) -c "COPY grid_ibge.censo2010_info TO '/tmp/grid_ibge_censo2010_info.csv' CSV HEADER"
-	rm -f /tmp/grid_ibge_censo2010_info.zip
-  zip /tmp/grid_ibge_censo2010_info.zip  /tmp/grid_ibge_censo2010_info.csv
-	@echo "Saved zip at /tmp"
-
-checksums:
+## Concrete optional targets:
+grid_alt1_checksums:
 	@echo "Calculating checksums of original file"
 	cd /tmp/sandbox/ibge_grade; md5sum grade_id*.zip > /tmp/sandbox/md5sum.txt
 	cd /tmp/sandbox/ibge_grade; sha256sum grade_id*.zip > /tmp/sandbox/sha256sum.txt
 	@echo "Use diff to compare with git checks"
 
+grid_alt1_toZip:
+	@echo "-- creating CSV and ZIP of new grid:"
+	psql postgres://postgres@localhost/$(pg_db) -c "CREATE extension IF NOT EXISTS adminpack"
+	psql postgres://postgres@localhost/$(pg_db) -c "SELECT pg_catalog.pg_file_unlink('/tmp/grid_ibge_censo2010_info.csv') AS rm_csv_file"
+	psql postgres://postgres@localhost/$(pg_db) -c "COPY grid_ibge.censo2010_info TO '/tmp/grid_ibge_censo2010_info.csv' CSV HEADER"
+	rm -f /tmp/grid_ibge_censo2010_info.zip
+	zip -j /tmp/grid_ibge_censo2010_info.zip /tmp/grid_ibge_censo2010_info.csv
+	@echo "Saved zip at /tmp"
+
 ## Concrete cleaner targets:
 
-clean_sql:
-	@echo "Drops the original grid tables, remains the compact one"
+grid_alt1_clean_sql:
+	@echo "Drops the original grid tables, remaining only the compact one"
 	psql postgres://postgres@localhost/$(pg_db) < step6_dropOldIBGE.sql
 
-clean_files:
+grid_alt1_clean_files:
 	@echo "Delete the original grid shapefiles"
 	rm -r /tmp/sandbox/ibge_grade/

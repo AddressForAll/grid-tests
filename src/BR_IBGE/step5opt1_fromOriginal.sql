@@ -24,8 +24,8 @@ BEGIN
     ) t
    ),
    ins AS (
-   INSERT INTO grid_ibge.censo2010_info(gid, is_200m, pop, pop_fem_perc, dom_ocu)
-     SELECT grid_ibge.coordinate_encode(gx,gy), is_200m, pop, pop_fem_perc, dom_ocu::smallint
+   INSERT INTO grid_ibge.censo2010_info(gid, pop, pop_fem_perc, dom_ocu)
+     SELECT grid_ibge.coordinate_encode(gx,gy,is_200m), pop, pop_fem_perc, dom_ocu::smallint
      FROM coredata
      ORDER BY 1
    RETURNING 1
@@ -69,13 +69,18 @@ FROM (
          pg_relation_lines('grid_ibge.censo2010_info')
 ) t;
 
+-- Células por nível:
+SELECT grid_ibge.level_decode(gid) as nivel, COUNT(*) n_compact_cells
+FROM grid_ibge.censo2010_info
+GROUP BY 1 ORDER BY 1;
+
 -- REFRESHES:
 
 REFRESH MATERIALIZED VIEW  grid_ibge.mvw_censo2010_info_Xsearch;
 REFRESH MATERIALIZED VIEW  grid_ibge.mvw_censo2010_info_Ysearch;
 
-SELECT max(x10) x10_max, min(x10) x10_min FROM grid_ibge.mvw_censo2010_info_Xsearch;
-SELECT max(y10) y10_max, min(y10) y10_min FROM grid_ibge.mvw_censo2010_info_Ysearch;
+SELECT min(x10) x10_min, max(x10) x10_max FROM grid_ibge.mvw_censo2010_info_Xsearch;
+SELECT min(y10) y10_min, max(y10) y10_max FROM grid_ibge.mvw_censo2010_info_Ysearch;
 
 -----------
 -- LIMPEZA:

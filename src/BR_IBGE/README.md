@@ -11,6 +11,8 @@ Sumário:
     * [Resolução dos identificadores de célula](#resolução-dos-identificadores-de-célula)
     * [Resolução de ponto em célula](#resolução-de-ponto-em-célula)
     * [Adaptações para outros países](#adaptações-para-outros-países)
+* [BIBLIOTECA](#biblioteca)
+    * API
 * [INSTALAÇÃO](#instalação)
     * [Instalando somente o zip](#instalando-somente-o-zip)
     * [Reproduzindo o processo completo](#reproduzindo-o-processo-completo)
@@ -21,7 +23,7 @@ O presente projeto oferece *scripts* para redistribuir mais eficientremente a Gr
 
 O principal objetivo foi oferecer uma **estrutura de dados alternativa** à estrutura original, batizada de **Grade Estatística IBGE Compacta**, com as seguintes **vantagens**: <!-- O principal objetivo destes *scripts* é oferecer uma **estrutura de dados alternativa** à estrutura original dos *shapfiles* de grade IBGE, com as seguintes **vantagens**:-->
 
-1. **reduzir o tamanho da distribuição** da geometria da grade, de 849&nbsp;Mb (56 arquivos zip) para um só arquivo 43&nbsp;Mb zip (**5%** dos 849&nbsp;Mb).
+1. **reduzir o tamanho da distribuição** da geometria da grade, de 849&nbsp;Mb (56 arquivos zip) para um só arquivo 44&nbsp;Mb zip (**5%** dos 849&nbsp;Mb).
 
 2. **estruturar de forma mais simples**, capaz de reproduzir funcionalmente os dados estrutura originais, e capaz ainda de ser utilizada:  
 
@@ -32,7 +34,6 @@ O principal objetivo foi oferecer uma **estrutura de dados alternativa** à estr
 3. **reduzir a ocupação em disco no banco de dados SQL** (a 20% ou menos do tamanho original).
 
 4. **distribuir em formato mais aberto** (não-proprietário) e mais simples e interoperável do que o [Shapefile](https://en.wikipedia.org/wiki/Shapefile): o formato [CSV](https://en.wikipedia.org/wiki/Comma-separated_values) é legível até por planilha (ex. Excel) e é um padrão aberto universal.
-
 
 # CONVENÇÕES DO IBGE
 
@@ -139,18 +140,15 @@ FROM ( SELECT (123456789::bigint<<30) | 987654321::bigint AS xy ) t;
 -- Result: true, x=123456789, y=987654321
 ```
 
-Como os valores mínimo e máximo das coordenadas XY dos centros de célula de todo o conjunto são, respectivamente, `(2809500,7599500)` e `(7620500,11920500)`, mesmo multiplicando por 10 ainda estão uma ordem de grandeza abaixo de `2^30-1 = 1073741823`. Cabem folgadamente em 30 bits e ainda sobram 4 bits para codificar o nível hierárquico da grade na qual se encontra o ponto. A representação final de *gid Bigint* proposta é a seguinte:
+Como os valores mínimo e máximo das coordenadas XY dos centros de célula de todo o conjunto são, respectivamente, `(2809500,7599500)` e `(7620500,11920500)`, mesmo multiplicando por 10 ainda estão uma ordem de grandeza abaixo de `2^30-1 = 1073741823`. Cabem folgadamente em 30 bits e ainda sobram 4 bits para codificar o nível hierárquico da grade na qual se encontra o ponto. A representação final para os 64 bits do *gid*  proposto é a seguinte, em três partes:
 
-* Primeiros 4 bits de `selgrid`, **selecionam a grade**: zero indica grades de 200 m e 1 km, que não se misturam; 1 a  5 indicam o nível pela formula  `6 - selgrid`.
+* Primeiros 4 bits, `selgrid`, **selecionam a grade**: `b'0000'` = nível _L0_, grade 500&nbsp;km; `b'0001'` = nível _L1_, grade 100&nbsp;km; ...;  `b'0101'` = nível _L5_, grade 1&nbsp;km; `b'0110'` = nível _L6_, grade 200&nbsp;m.
 
-* 30 bits seguintes de `x10`, **codificam X10**: a primeira coordenada XY Albers, multiplicada por 10 e arredondada.  
+* 30 bits seguintes, `x10`, **codificam X10**: a primeira coordenada XY Albers, multiplicada por 10 e arredondada.  
 
-* 30 bits finais de `y10`, **codificam Y10**: a segunda coordenada XY Albers, multiplicada por 10 e arredondada.
+* 30 bits finais, `y10`, **codificam Y10**: a segunda coordenada XY Albers, multiplicada por 10 e arredondada.
 
 Com isso podemos podemos indexar além das células fornecidas pelos shapfiles do IBGE, todas as demais, criando um grande e econômico _cache_ das grades de sumarização.
-
-Covencionaremos os seguintes valores para `selgrid`:
-`b'0110'` = nível 6-6=_L0_, grade 500 km; `b'0101'` = nível 6-1=_L5_, grade 100 km; `b'0100'` = nível 6-4=_L2_, grade 50 km; `b'0011'` = nível 6-3=_L3_, grade 10 km; `b'0010'` = nível 6-2=_L4_, grade 5 km; (`b'0001'`&nbsp;sem&nbsp;uso);  `b'0000'` = níveis _L5_ e _L6_, grades de 1 km e 200 m.
 
 ## Resolução dos identificadores de célula
 
@@ -263,6 +261,54 @@ Conforme necessidades, os _scripts_ SQL podem ser facilmente adaptados, desde qu
 
 ----------------
 
+## BIBLIOTECA
+Principais funções, para a manipulação da grade compacta e conversão entre as representações original e compacta, todas do SQL SCHEMA `grid_ibge`:
+
+* `coordinate_encode(x real, y real, level int)`: compacta as coordenadas XY Albers de centro de célula em *gid*, com respectivo nível da célula.
+
+* `coordinate_encode10(x10 int, y10 int, level int)`: faz o trabalho para `coordinate_encode()`, já que internamente a representação é por inteiros XY10.
+
+* `coordinate_decode10(gid bigint)`: retorna centro XY10 e nível da célula identificada por *gid*.
+
+* `level_decode(gid bigint)`: devolve apenas o nível da célula identificada por *gid*.
+
+* `level_to_size(level int)`: devolve o tamanho de lado da célula conforme a convenção de níveis (0 a 6) adotada.   
+
+* `search_xy10(p_x10 int, p_y10 int, p_level smallint)`: descobre a célula onde está contido o ponto XY10, por hora preparando para rodar apenas com p_level=5.
+
+* `search_cell(p_x real, p_y real, p_level smallint)`: idem `search_xy10()` porém partindo das coordenadas XY Albers.
+
+* `draw_cell(gid bigint)`: desenha célula identificada por *gid*.
+
+<!--
+* grid_ibge.coordinate_encode10:
+* grid_ibge.coordinate_encode(x real, y real, level int)
+* grid_ibge.coordinate_encode(x real, y real, is_200m boolean)
+* grid_ibge.coordinate_encode(x real, y real)
+* grid_ibge.coordinate_encode10(x10 int, y10 int, level int)
+* grid_ibge.coordinate_decode10(gid bigint)
+* grid_ibge.level_decode(gid bigint) RETURNS int AS $f$
+* grid_ibge.level_to_size(level int)  
+* grid_ibge.search_xy10(p_x10 int, p_y10 int, p_level smallint)
+* grid_ibge.search_cell(p_x real, p_y real, p_level smallint)
+* grid_ibge.xy10_to_quadrante()
+* grid_ibge.xy_to_quadrante()
+* grid_ibge.gid_to_quadrante(p_gid bigint)
+* grid_ibge.draw_cell(real,real,int,boolean,int)
+* grid_ibge.draw_cell(int,int,int,boolean,int)
+* grid_ibge.draw_cell(int[],int,boolean,int)
+* grid_ibge.draw_cell(bigint,boolean,int)
+-->
+
+### API
+Funções de resolução para uso na API.
+
+* ...
+* Endpoint `br_ibge.osm.org/{cell_id}`:  retorna célula solicitada na sintaxe original,  por exemplo `5KME5300N9630`.
+* Endpoint `br_ibge.osm.org/geo:{lat},{long}`:  efeua `search_cell(p_x,p_y,5)`, ou seja, retorna célula de 1km.
+* Endpoint `br_ibge.osm.org/geo:{lat},{long};u={uncertainty}`: usa a incerteza para deduzir o nível mais próximo e efeuar `search_cell(p_x,p_y,p_level)`. Por exemplo erro de 5km a 10km retorna células de 10 km.
+* ...  
+
 ## INSTALAÇÃO
 
 Use no terminal, a parir desta pasta, o comando `make` para listar as alternativas de instalação integral (*all1* ou *all2* descritas abaixo), que rodam todos os  _targets_ necessários, exceto `clean`. O comando `make` sem target informa também o que fazem os demais targets, que podem ser executados em separado.
@@ -302,8 +348,9 @@ Executando em seguida o `make grid_alt1_fromOrig` (final do `make all1`), as tab
 resource            | tables | tot_bytes  | tot_size | tot_lines | bytes_per_line
 --------------------|--------|------------|----------|-----------|-----------
 Grade IBGE original |     56 | 4311826432 | 4112 MB  |  13286489 |        325
-Grade compacta      |      1 |  693272576 | 661 MB   |  13286489 |         52
+Grade compacta      |      1 |  588341248 | 561 MB   |  13286489 |         44
 
+<!-- old Grade compacta      |      1 |  693272576 | 661 MB   |  13286489 |         52 -->
 A tabela da nova grade pode ainda ser gravada como CSV,  
 
 ```sql

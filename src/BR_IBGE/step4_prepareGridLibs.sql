@@ -23,18 +23,34 @@ CREATE TABLE grid_ibge.censo2010_info (
 ------
 
 CREATE FUNCTION grid_ibge.coordinate_encode10(x10 bigint, y10 bigint) RETURNS bigint AS $f$
-  SELECT x10*100000000::bigint + y10
+  SELECT (x10<<30) | y10
 $f$ LANGUAGE SQL IMMUTABLE;
 COMMENT ON FUNCTION grid_ibge.coordinate_encode10(bigint,bigint)
   IS 'Encodes two valid-range BigInts (coordinates) into one BigInt (gid)'
 ;
 -- MOST IMPORTANT:
-CREATE FUNCTION grid_ibge.coordinate_encode(x real, y real) RETURNS bigint AS $wrap$
-  SELECT grid_ibge.coordinate_encode(round(x*10)::bigint, round(y*10)::bigint)
-$wrap$ LANGUAGE SQL IMMUTABLE;
-COMMENT ON FUNCTION grid_ibge.coordinate_encode(int,int)
+CREATE or replace FUNCTION grid_ibge.coordinate_encode(x real, y real) RETURNS bigint AS $f$
+  SELECT grid_ibge.coordinate_encode10(round(x*10)::bigint, round(y*10)::bigint)
+$f$ LANGUAGE SQL IMMUTABLE;
+COMMENT ON FUNCTION grid_ibge.coordinate_encode(real,real)
   IS 'Encodes real coordinates into gid, multiplying each coordinate by 10 before cast'
 ;
+/*  -- Debug version:
+CREATE or replace FUNCTION grid_ibge.coordinate_encode(x real, y real) RETURNS bigint AS $f$
+ DECLARE
+   a bigint;
+   b bigint;
+   mx bigint := (2^30)::bigint;
+ BEGIN
+  a := round(x*10)::bigint;
+  b := round(y*10)::bigint;
+  IF a>mx OR b>mx THEN
+     RAISE EXCEPTION ' XY10 BIGGER THAN LIMIT %s, See point (%,%)', mx, x,y;
+  END IF;
+  RETURN grid_ibge.coordinate_encode10(a,b);
+ END;
+ $f$ LANGUAGE PLpgSQL IMMUTABLE;
+*/
 
 CREATE FUNCTION grid_ibge.coordinate_encode10(x10 int, y10 int) RETURNS bigint AS $wrap$
   SELECT grid_ibge.coordinate_encode10(x10::bigint, y10::bigint)
@@ -44,11 +60,10 @@ COMMENT ON FUNCTION grid_ibge.coordinate_encode10(int,int)
 ;
 
 CREATE FUNCTION grid_ibge.coordinate_decode10(gid bigint) RETURNS int[] AS $f$
-  SELECT array[ x::int,  (gid - 100000000::bigint * x::bigint)::int]
-  FROM ( SELECT floor(gid/100000000::bigint) as x ) t
+  SELECT array[ (gid >> 30)::int,  (gid & 1073741823::bigint)::int ]
 $f$ LANGUAGE SQL IMMUTABLE;
 COMMENT ON FUNCTION grid_ibge.coordinate_decode10(bigint)
-  IS 'Decodes gid (or any XY10 valid-range bigint) into two integer multi10-coordinates, as array'
+  IS 'Decodes gid (or any XY10 30 bits valid-range bigint) into two integer multi10-coordinates, as array'
 ;
 /* TEST with grade_id45, grade_id04, grade_id60, grade_id69, grade_id93:
  SELECT x,y, gid
@@ -63,44 +78,44 @@ CREATE MATERIALIZED VIEW grid_ibge.mvw_censo2010_info_Xsearch AS
   SELECT DISTINCT (grid_ibge.coordinate_decode10(gid))[1] AS x10
   FROM grid_ibge.censo2010_info
 ;
-CREATE INDEX mvw_censo2010_info_xsearch_xbtree ON grid_ibge.mvw_censo2010_info_xsearch(x);
+CREATE INDEX mvw_censo2010_info_xsearch_xbtree ON grid_ibge.mvw_censo2010_info_xsearch(x10);
 
 CREATE MATERIALIZED VIEW grid_ibge.mvw_censo2010_info_Ysearch AS
   SELECT DISTINCT (grid_ibge.coordinate_decode10(gid))[2] AS y10
   FROM grid_ibge.censo2010_info
 ;
-CREATE INDEX mvw_censo2010_info_ysearch_ybtree ON grid_ibge.mvw_censo2010_info_Ysearch(y);
+CREATE INDEX mvw_censo2010_info_ysearch_ybtree ON grid_ibge.mvw_censo2010_info_Ysearch(y10);
 
 -----
 
-CREATE FUNCTION grid_ibge.search_xy10(p_x int, p_y int) RETURNS bigint AS $f$
- SELECT grid_ibge.coordinate_encode10(t1x.x, t1y.y)
+CREATE FUNCTION grid_ibge.search_xy10(p_x10 int, p_y10 int) RETURNS bigint AS $f$
+ SELECT grid_ibge.coordinate_encode10(t1x.x10, t1y.y10)
  FROM (
-  SELECT x FROM (
+  SELECT x10 FROM (
     (
-      SELECT x
+      SELECT x10
       FROM grid_ibge.mvw_censo2010_info_Xsearch
-      WHERE x >= p_x ORDER BY x LIMIT 1
+      WHERE x10 >= p_x10 ORDER BY x10 LIMIT 1
     )  UNION ALL (
-      SELECT x
+      SELECT x10
       FROM grid_ibge.mvw_censo2010_info_Xsearch
-      WHERE x < p_x ORDER BY x DESC LIMIT 1
+      WHERE x10 < p_x10 ORDER BY x10 DESC LIMIT 1
     )
   ) t0x
-  ORDER BY abs(p_x-x) LIMIT 1
+  ORDER BY abs(p_x10-x10) LIMIT 1
 ) t1x, (
-  SELECT y FROM (
+  SELECT y10 FROM (
     (
-      SELECT y
+      SELECT y10
       FROM grid_ibge.mvw_censo2010_info_Ysearch
-      WHERE y >= p_y ORDER BY y LIMIT 1
+      WHERE y10 >= p_y10 ORDER BY y10 LIMIT 1
     )  UNION ALL (
-      SELECT y
+      SELECT y10
       FROM grid_ibge.mvw_censo2010_info_Ysearch
-      WHERE y < p_y ORDER BY y DESC LIMIT 1
+      WHERE y10 < p_y10 ORDER BY y10 DESC LIMIT 1
     )
   ) t0y
-  ORDER BY abs(p_y-y) LIMIT 1
+  ORDER BY abs(p_y10-y10) LIMIT 1
 ) t1y
 $f$ LANGUAGE SQL IMMUTABLE;
 
@@ -164,8 +179,8 @@ FROM (
   ), p_srid) AS geom
 ) t
 $f$ LANGUAGE SQL IMMUTABLE;
-COMMENT ON FUNCTION grid_ibge.draw_cell(int,int,int,boolean,int)
-  IS 'Draws a square-cell centered on the requested point, with requested radius (half side) and optional translation and SRID.'
+COMMENT ON FUNCTION grid_ibge.draw_cell(real,real,int,boolean,int)
+  IS 'Draws a square-cell centered on the requested real point, with requested radius (half side) and optional translation and SRID.'
 ;
 
 CREATE FUNCTION grid_ibge.draw_cell(
@@ -176,32 +191,32 @@ CREATE FUNCTION grid_ibge.draw_cell(
   p_srid int DEFAULT 952019          -- SRID da grade (default IBGE)
 ) RETURNS geometry AS $wrap$
   SELECT grid_ibge.draw_cell(rcx, rcy, d, p_translate, p_srid)
-  FROM ( SELECT cx10::real/10.0 AS rcx, cy10::real/10.0 AS rcy )
+  FROM ( SELECT cx10::real/10.0::real AS rcx, cy10::real/10.0::real AS rcy ) t
 $wrap$ LANGUAGE SQL IMMUTABLE;
 COMMENT ON FUNCTION grid_ibge.draw_cell(int,int,int,boolean,int)
   IS '(wrap for draw_cell of real coordinates) Draws a square-cell centered on the requested point gid*10, with requested radius (half side) and optional translation and SRID.'
 ;
 
 CREATE FUNCTION grid_ibge.draw_cell(
-  cXY int[], -- centro XY da célula codificado no ID
+  cXY10 int[], -- centro XY10 da célula codificado no ID
   d int,    -- diâmetro do circulo inscrito
   p_translate boolean DEFAULT false, -- true para converter em LatLong (WGS84 sem projeção)
   p_srid int DEFAULT 952019          -- SRID da grade (default IBGE)
 ) RETURNS geometry AS $wrap$
-  SELECT grid_ibge.draw_cell( cXY[1], cXY[2], $2, $3, $4 )
+  SELECT grid_ibge.draw_cell( cXY10[1], cXY10[2], $2, $3, $4 )
 $wrap$ LANGUAGE SQL IMMUTABLE;
 COMMENT ON FUNCTION grid_ibge.draw_cell(int[],int,boolean,int)
   IS 'Wrap to draw_cell(int,int,*).'
 ;
 
 CREATE FUNCTION grid_ibge.draw_cell(
-  cXY bigint, -- centro XY da célula codificado no ID
+  gid bigint, -- centro XY10 da célula codificado no gID
   d int,    -- diâmetro do circulo inscrito
   p_translate boolean DEFAULT false, -- true para converter em LatLong (WGS84 sem projeção)
   p_srid int DEFAULT 952019          -- SRID da grade (default IBGE)
 ) RETURNS geometry AS $wrap$
   SELECT grid_ibge.draw_cell( xy[1], xy[2], $2, $3, $4 )
-  FROM (SELECT grid_ibge.coordinate_decode10(cXY) xy ) t
+  FROM (SELECT grid_ibge.coordinate_decode10(gid) xy ) t
 $wrap$ LANGUAGE SQL IMMUTABLE;
 COMMENT ON FUNCTION grid_ibge.draw_cell(bigint,int,boolean,int)
   IS 'Wrap to draw_cell(int,int,*) using gid (embedding XY key) instead coordinates.'

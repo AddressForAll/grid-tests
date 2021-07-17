@@ -122,14 +122,35 @@ A seguir a descrição dos algoritmos que geram a conversão da grade original e
 
 Com rótulo e geometria compactados em um simples inteiro de 64 bits (*bigint* no PostgreSQL), e eliminando outras redundâncias, as informações da grade original podem ser transferidas, sem perdas, para a seguinte estrutura:
 
-Column    |   Type   | Comments
-----------|----------|--------------
-`xy`           | bigint  NOT NULL PRIMARY KEY | coordenadas (`x*10`,`y*10`) do centroide de celula, formatadas como `x10*100000000 + y10`.
-`is_200m`      | boolean  NOT NULL| flag indicando se é célula de 200 metros.
+Column         |   Type   | Comments
+---------------|----------|--------------
+`gid`          | bigint  NOT NULL PRIMARY KEY | coordenadas (`x*10`,`y*10`) do centroide de celula, formatadas como dois números de 30 bits concatenados.
 `pop`          | integer  NOT NULL| população total dentro da célula.
 `pop_fem_perc` | smallint NOT NULL| percentual da população feminina
-`dom_ocu`      | smallint NOT NULL| ?? (pendente)
+`dom_ocu`      | smallint NOT NULL| domicílios ocupados
 
+O codificador de coordenadas consegue compactar toda a informação de localização do centro da célula em um só número inteiro de 64 bits através das operações *bitwise*, e usando uma máscara de 30 bits. A *query* abaixo destaca a máscara de bits e ilustra a reversibilidade entre o número *xy* e as coordenadas (_x,y_)
+
+```sql
+SELECT (b'0000000000000000000000000000000000111111111111111111111111111111')::bigint = 1073741823,
+       xy>>30 AS x,
+       xy&1073741823 AS y
+FROM ( SELECT (123456789::bigint<<30) | 987654321::bigint AS xy ) t;
+-- Result: true, x=123456789, y=987654321
+```
+
+Como os valores mínimo e máximo das coordenadas XY dos centros de célula de todo o conjunto são, respectivamente, `(2809500,7599500)` e `(7620500,11920500)`, mesmo multiplicando por 10 ainda estão uma ordem de grandeza abaixo de `2^30-1 = 1073741823`. Cabem folgadamente em 30 bits e ainda sobram 4 bits para codificar o nível hierárquico da grade na qual se encontra o ponto. A representação final de *gid Bigint* proposta é a seguinte:
+
+* Primeiros 4 bits de `selgrid`, **selecionam a grade**: zero indica grades de 200 m e 1 km, que não se misturam; 1 a  5 indicam o nível pela formula  `6 - selgrid`.
+
+* 30 bits seguintes de `x10`, **codificam X10**: a primeira coordenada XY Albers, multiplicada por 10 e arredondada.  
+
+* 30 bits finais de `y10`, **codificam Y10**: a segunda coordenada XY Albers, multiplicada por 10 e arredondada.
+
+Com isso podemos podemos indexar além das células fornecidas pelos shapfiles do IBGE, todas as demais, criando um grande e econômico _cache_ das grades de sumarização.
+
+Covencionaremos os seguintes valores para `selgrid`:
+`b'0110'` = nível 6-6=_L0_, grade 500 km; `b'0101'` = nível 6-1=_L5_, grade 100 km; `b'0100'` = nível 6-4=_L2_, grade 50 km; `b'0011'` = nível 6-3=_L3_, grade 10 km; `b'0010'` = nível 6-2=_L4_, grade 5 km; (`b'0001'`&nbsp;sem&nbsp;uso);  `b'0000'` = níveis _L5_ e _L6_, grades de 1 km e 200 m.
 
 ## Resolução dos identificadores de célula
 

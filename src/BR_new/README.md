@@ -34,6 +34,13 @@ A **proposta de "Nova Grade IBGE" do Instituto AddressForAll** teve por objetivo
 
 A solução de geocódico encontrada foi o [algortimo Geohash](https://en.wikipedia.org/wiki/Geohash), com pequenas adaptações denominadas [Geohash Generalizado](https://ppkrauss.github.io/Sfc4q/). O restante do processo de desenvolvimento da Nova Grade foi orientado pela tentativa de se preservar outras caracterísicas interessantes da grade IBGE, tais como a projeção cartográfica e a escolha do recorte sobre a América do Sul.
 
+Por fim, satisfeitos todos os 5 requisitos acima, propomos o teste de  mais um, o item 6: mais níveis, para obter resolução inferior ao 1 km e  ampliar o uso dos geocódigos da grade proposta.
+
+Geocódigos compactos, como o Geohash, podem ir mais além na conquista de aplicações para a grade: servir de **CEP**, um **novo código postal** que localiza efetivamente o endereço até a porta de casa.
+
+![](../../assets/ilustra-escalas01.jpg)
+
+Por isso na solução proposta está sendo também prevista extensão de níveis hierárquicos até a ordem de metro ou dezena de metro.
 
 ## Apresentação das decisões de projeto
 
